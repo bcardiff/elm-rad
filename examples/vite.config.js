@@ -12,6 +12,7 @@ export default defineConfig({
         "greeting-html": resolve(__dirname, "greeting-html.html"),
         greeting: resolve(__dirname, "greeting.html"),
         counter: resolve(__dirname, "counter.html"),
+        swap: resolve(__dirname, "swap.html"),
       },
     },
   },
