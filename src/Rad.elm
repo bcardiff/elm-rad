@@ -4,7 +4,7 @@ module Rad exposing
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
     , Source, toSource, readSource
-    , Action, set, modify, applyAction
+    , Action, set, modify, copy, applyAction
     , AppDef, AppModel, run
     )
 
@@ -15,7 +15,7 @@ module Rad exposing
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
 @docs Source, toSource, readSource
-@docs Action, set, modify, applyAction
+@docs Action, set, modify, copy, applyAction
 @docs AppDef, AppModel, run
 
 -}
@@ -196,6 +196,20 @@ modify ((Cell c) as cell) f =
                     readSource (toSource cell) registry
             in
             Registry.insert c.id (c.codec.encode (f current)) registry
+        )
+
+
+{-| Copy the current value of a source into a cell.
+
+If the source and target have different codecs for the same value type, the
+target's codec is used for encoding.
+
+-}
+copy : Source a -> Cell a -> Action model
+copy source (Cell c) =
+    IA.Action
+        (\registry ->
+            Registry.insert c.id (c.codec.encode (readSource source registry)) registry
         )
 
 

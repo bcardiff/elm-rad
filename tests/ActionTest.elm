@@ -14,6 +14,17 @@ init =
     build Model |> with "name" "alice" stringCodec
 
 
+type alias TwoModel =
+    { a : Cell String, b : Cell String }
+
+
+twoInit : Rad.CellBuilder TwoModel
+twoInit =
+    build TwoModel
+        |> with "a" "X" stringCodec
+        |> with "b" "Y" stringCodec
+
+
 suite : Test
 suite =
     describe "Actions"
@@ -43,4 +54,15 @@ suite =
                         Rad.applyAction (Rad.modify model.name (\s -> s ++ "!")) registry1
                 in
                 Expect.equal "hi!" (Rad.readSource (Rad.toSource model.name) registry2)
+        , test "copy reads source then writes to target" <|
+            \_ ->
+                let
+                    ( model, registry0 ) =
+                        Rad.runBuilder twoInit
+
+                    registry1 =
+                        Rad.applyAction (Rad.copy (Rad.toSource model.a) model.b) registry0
+                in
+                Expect.equal "X"
+                    (Rad.readSource (Rad.toSource model.b) registry1)
         ]
