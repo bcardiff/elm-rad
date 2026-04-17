@@ -1,5 +1,6 @@
 module SimpleView exposing
     ( SimpleView
+    , button
     , col
     , input
     , simpleViewEngine
@@ -10,7 +11,7 @@ module SimpleView exposing
 import Html
 import Html.Attributes
 import Html.Events
-import Rad exposing (Cell, Source, readSource, set, toSource)
+import Rad exposing (Action, Cell, Source, readSource, set, toSource)
 import Rad.Engine exposing (Msg, ViewEngine, fromAction)
 import Rad.Internal.Registry exposing (Registry)
 
@@ -56,6 +57,16 @@ watch source f =
                     f (readSource source registry)
             in
             g registry
+        )
+
+
+button : { label : String, onClick : Action model } -> SimpleView model
+button { label, onClick } =
+    SimpleView
+        (\_ ->
+            Html.button
+                [ Html.Events.onClick (fromAction onClick) ]
+                [ Html.text label ]
         )
 
 
