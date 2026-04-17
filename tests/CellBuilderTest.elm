@@ -30,6 +30,16 @@ suite =
                         )
                 in
                 Expect.equal ( Just "alice", Just 30 ) decoded
+        , test "toSource reads the current value of a cell from the registry" <|
+            \_ ->
+                let
+                    ( model, registry ) =
+                        Rad.runBuilder init
+
+                    source =
+                        Rad.toSource model.name
+                in
+                Expect.equal "alice" (Rad.readSource source registry)
         ]
 
 

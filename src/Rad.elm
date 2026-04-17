@@ -3,6 +3,7 @@ module Rad exposing
     , CellBuilder, build, with, runBuilder
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
+    , Source, toSource, readSource
     )
 
 {-| elm-rad — reactive cell DSL.
@@ -11,12 +12,14 @@ module Rad exposing
 @docs CellBuilder, build, with, runBuilder
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
+@docs Source, toSource, readSource
 
 -}
 
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Rad.Internal.Registry as Registry exposing (Registry)
+import Rad.Internal.Source as IS
 
 
 {-| A pair of encoder and decoder for serializing cell values.
@@ -128,3 +131,40 @@ runBuilder (CellBuilder b) =
     , b.metas
         |> List.foldl (\( id, v ) -> Registry.insert id v) Registry.empty
     )
+
+
+{-| Anything readable. Cells, derived values, and later debounced/validated
+accessors all convert to `Source`. The constructor is not re-exported from
+`Rad`, keeping the type opaque to user code.
+-}
+type alias Source a =
+    IS.Source a
+
+
+{-| Convert a cell into a readable source.
+-}
+toSource : Cell a -> Source a
+toSource (Cell c) =
+    IS.Source
+        (\registry ->
+            case Registry.get c.id registry of
+                Just v ->
+                    case Decode.decodeValue c.codec.decode v of
+                        Ok a ->
+                            a
+
+                        Err _ ->
+                            -- Invariant: the registry was written by this cell's
+                            -- codec, so decode must succeed.
+                            Debug.todo "registry codec mismatch"
+
+                Nothing ->
+                    Debug.todo "registry missing cell"
+        )
+
+
+{-| Read a source against a registry. Exposed for tests and for the runtime.
+-}
+readSource : Source a -> Registry -> a
+readSource =
+    IS.readSource
