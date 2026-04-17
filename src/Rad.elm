@@ -5,6 +5,7 @@ module Rad exposing
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
     , Source, toSource, readSource
     , Action, set, applyAction
+    , AppDef, AppModel, run
     )
 
 {-| elm-rad — reactive cell DSL.
@@ -15,11 +16,14 @@ module Rad exposing
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
 @docs Source, toSource, readSource
 @docs Action, set, applyAction
+@docs AppDef, AppModel, run
 
 -}
 
+import Browser
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Rad.Engine
 import Rad.Internal.Action as IA
 import Rad.Internal.Registry as Registry exposing (Registry)
 import Rad.Internal.Source as IS
@@ -192,3 +196,44 @@ set (Cell c) value =
 applyAction : Action model -> Registry -> Registry
 applyAction =
     IA.apply
+
+
+{-| A public alias for the runtime's internal model tuple. Used as the model
+type of a `Program` so user code does not have to name `Rad.Internal.Registry`.
+-}
+type alias AppModel model =
+    ( model, Registry )
+
+
+{-| An application definition. Grows additional fields in later layers
+(`reactions`, `persist`).
+-}
+type alias AppDef view model computed =
+    { init : CellBuilder model
+    , computed : model -> computed
+    , view : model -> computed -> view
+    }
+
+
+{-| Run an application. Wraps `Browser.element` so later layers can add
+effects without changing the harness.
+-}
+run :
+    Rad.Engine.ViewEngine view model
+    -> AppDef view model computed
+    -> Program () (AppModel model) (Rad.Engine.Msg model)
+run engine app =
+    let
+        ( model, initialRegistry ) =
+            runBuilder app.init
+    in
+    Browser.element
+        { init = \() -> ( ( model, initialRegistry ), Cmd.none )
+        , update =
+            \msg ( m, registry ) ->
+                ( ( m, Rad.Engine.applyMsg msg registry ), Cmd.none )
+        , subscriptions = \_ -> Sub.none
+        , view =
+            \( m, registry ) ->
+                engine.toHtml registry (app.view m (app.computed m))
+        }
