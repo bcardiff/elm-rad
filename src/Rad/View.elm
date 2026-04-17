@@ -1,7 +1,7 @@
 module Rad.View exposing
     ( Attribute, HtmlView
     , bind, onClick
-    , col, input, text, watch
+    , button, col, input, text, watch
     , htmlEngine
     )
 
@@ -9,7 +9,7 @@ module Rad.View exposing
 
 @docs Attribute, HtmlView
 @docs bind, onClick
-@docs col, input, text, watch
+@docs button, col, input, text, watch
 @docs htmlEngine
 
 -}
@@ -101,6 +101,30 @@ input attrs _ =
 text : String -> HtmlView model
 text s =
     HtmlView (\_ -> Html.text s)
+
+
+{-| An HTML `<button>`.
+-}
+button : List (Attribute model) -> List (HtmlView model) -> HtmlView model
+button attrs children =
+    HtmlView
+        (\registry ->
+            let
+                clickAttrs =
+                    List.concatMap
+                        (\a ->
+                            case a of
+                                OnClick action ->
+                                    [ Html.Events.onClick (fromAction action) ]
+
+                                BindString _ ->
+                                    []
+                        )
+                        attrs
+            in
+            Html.button clickAttrs
+                (List.map (\(HtmlView f) -> f registry) children)
+        )
 
 
 {-| Subscribe a view region to a source. Re-renders when the source's value
