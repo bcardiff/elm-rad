@@ -91,6 +91,7 @@ type Cell a
         { id : Int
         , key : String
         , codec : Codec a
+        , initial : a
         }
 
 
@@ -121,7 +122,7 @@ with : String -> a -> Codec a -> CellBuilder (Cell a -> rest) -> CellBuilder res
 with key initial codec (CellBuilder b) =
     let
         cell =
-            Cell { id = b.nextId, key = key, codec = codec }
+            Cell { id = b.nextId, key = key, codec = codec, initial = initial }
     in
     CellBuilder
         { nextId = b.nextId + 1
@@ -156,17 +157,10 @@ toSource (Cell c) =
         (\registry ->
             case Registry.get c.id registry of
                 Just v ->
-                    case Decode.decodeValue c.codec.decode v of
-                        Ok a ->
-                            a
-
-                        Err _ ->
-                            -- Invariant: the registry was written by this cell's
-                            -- codec, so decode must succeed.
-                            Debug.todo "registry codec mismatch"
+                    Result.withDefault c.initial (Decode.decodeValue c.codec.decode v)
 
                 Nothing ->
-                    Debug.todo "registry missing cell"
+                    c.initial
         )
 
 
