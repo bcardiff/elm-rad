@@ -1,6 +1,6 @@
 module Rad.View exposing
     ( Attribute, HtmlView
-    , bind
+    , bind, onClick
     , col, input, text, watch
     , htmlEngine
     )
@@ -8,7 +8,7 @@ module Rad.View exposing
 {-| The HTML view engine and its primitives.
 
 @docs Attribute, HtmlView
-@docs bind
+@docs bind, onClick
 @docs col, input, text, watch
 @docs htmlEngine
 
@@ -17,17 +17,24 @@ module Rad.View exposing
 import Html
 import Html.Attributes
 import Html.Events
-import Rad exposing (Cell, Source, readSource, set, toSource)
+import Rad exposing (Action, Cell, Source, readSource, set, toSource)
 import Rad.Engine exposing (Msg, ViewEngine, fromAction)
 import Rad.Internal.Registry exposing (Registry)
 
 
 {-| An attribute applied to an HTML primitive. Encodes reactive intent (bind,
-later onClick) that `htmlEngine` wires into real `Html.Attribute`s at render
-time.
+onClick) that `htmlEngine` wires into real `Html.Attribute`s at render time.
 -}
 type Attribute model
     = BindString (Cell String)
+    | OnClick (Action model)
+
+
+{-| Dispatch an action when an element is clicked.
+-}
+onClick : Action model -> Attribute model
+onClick =
+    OnClick
 
 
 {-| The HTML view value produced by the primitives below. Internally a thunk
@@ -70,6 +77,9 @@ input attrs _ =
                                     ( Just cell
                                     , Html.Events.onInput (\v -> fromAction (set cell v)) :: evts
                                     )
+
+                                OnClick _ ->
+                                    ( mc, evts )
                         )
                         ( Nothing, [] )
                         attrs
