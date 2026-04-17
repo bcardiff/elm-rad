@@ -1,7 +1,7 @@
 module Rad.View exposing
     ( Attribute, HtmlView
     , bind
-    , col, input, text
+    , col, input, text, watch
     , htmlEngine
     )
 
@@ -9,7 +9,7 @@ module Rad.View exposing
 
 @docs Attribute, HtmlView
 @docs bind
-@docs col, input, text
+@docs col, input, text, watch
 @docs htmlEngine
 
 -}
@@ -17,7 +17,7 @@ module Rad.View exposing
 import Html
 import Html.Attributes
 import Html.Events
-import Rad exposing (Cell, readSource, set, toSource)
+import Rad exposing (Cell, Source, readSource, set, toSource)
 import Rad.Engine exposing (Msg, ViewEngine, fromAction)
 import Rad.Internal.Registry exposing (Registry)
 
@@ -91,6 +91,21 @@ input attrs _ =
 text : String -> HtmlView model
 text s =
     HtmlView (\_ -> Html.text s)
+
+
+{-| Subscribe a view region to a source. Re-renders when the source's value
+changes (achieved via whole-tree re-render on any registry change in Layer 0+1).
+-}
+watch : Source a -> (a -> HtmlView model) -> HtmlView model
+watch source f =
+    HtmlView
+        (\registry ->
+            let
+                (HtmlView g) =
+                    f (readSource source registry)
+            in
+            g registry
+        )
 
 
 {-| The shipped HTML engine.
