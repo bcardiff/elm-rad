@@ -14,6 +14,7 @@ export default defineConfig({
         counter: resolve(__dirname, "counter.html"),
         swap: resolve(__dirname, "swap.html"),
         "full-name": resolve(__dirname, "full-name.html"),
+        temperature: resolve(__dirname, "temperature.html"),
       },
     },
   },
