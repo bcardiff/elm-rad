@@ -7,7 +7,7 @@ module Rad.Engine exposing (Msg, ViewEngine, fromAction, applyMsg)
 -}
 
 import Html exposing (Html)
-import Rad exposing (Action)
+import Rad.Internal.Action as IA
 import Rad.Internal.Registry exposing (Registry)
 
 
@@ -15,13 +15,13 @@ import Rad.Internal.Registry exposing (Registry)
 Later layers add internal variants without breaking engines.
 -}
 type Msg model
-    = ApplyAction (Action model)
+    = ApplyAction (IA.Action model)
 
 
 {-| Convert a user-level action into a runtime message that engines can attach
 to event handlers.
 -}
-fromAction : Action model -> Msg model
+fromAction : IA.Action model -> Msg model
 fromAction =
     ApplyAction
 
@@ -31,7 +31,7 @@ user-facing DSL.
 -}
 applyMsg : Msg model -> Registry -> Registry
 applyMsg (ApplyAction action) registry =
-    Rad.applyAction action registry
+    IA.apply action registry
 
 
 {-| A view engine transforms the engine's view type into `Html (Msg model)`

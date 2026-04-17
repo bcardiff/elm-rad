@@ -20,6 +20,7 @@ module Rad exposing
 
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Rad.Internal.Action as IA
 import Rad.Internal.Registry as Registry exposing (Registry)
 import Rad.Internal.Source as IS
 
@@ -175,19 +176,19 @@ readSource =
 {-| A synchronous action against the cell registry. Phantom `model` parameter
 reserves type-level differentiation for later layers.
 -}
-type Action model
-    = Action (Registry -> Registry)
+type alias Action model =
+    IA.Action model
 
 
 {-| Set a cell to a given value.
 -}
 set : Cell a -> a -> Action model
 set (Cell c) value =
-    Action (Registry.insert c.id (c.codec.encode value))
+    IA.Action (Registry.insert c.id (c.codec.encode value))
 
 
 {-| Apply an action to a registry. Exposed for tests and the runtime.
 -}
 applyAction : Action model -> Registry -> Registry
-applyAction (Action f) registry =
-    f registry
+applyAction =
+    IA.apply
