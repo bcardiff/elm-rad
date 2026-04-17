@@ -30,4 +30,17 @@ suite =
                         Rad.toSource model.name
                 in
                 Expect.equal "bob" (Rad.readSource source registry1)
+        , test "modify applies a function to the cell's value" <|
+            \_ ->
+                let
+                    ( model, registry0 ) =
+                        Rad.runBuilder init
+
+                    registry1 =
+                        Rad.applyAction (Rad.set model.name "hi") registry0
+
+                    registry2 =
+                        Rad.applyAction (Rad.modify model.name (\s -> s ++ "!")) registry1
+                in
+                Expect.equal "hi!" (Rad.readSource (Rad.toSource model.name) registry2)
         ]

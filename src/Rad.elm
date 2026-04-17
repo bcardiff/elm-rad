@@ -4,7 +4,7 @@ module Rad exposing
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
     , Source, toSource, readSource
-    , Action, set, applyAction
+    , Action, set, modify, applyAction
     , AppDef, AppModel, run
     )
 
@@ -15,7 +15,7 @@ module Rad exposing
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
 @docs Source, toSource, readSource
-@docs Action, set, applyAction
+@docs Action, set, modify, applyAction
 @docs AppDef, AppModel, run
 
 -}
@@ -183,6 +183,20 @@ type alias Action model =
 set : Cell a -> a -> Action model
 set (Cell c) value =
     IA.Action (Registry.insert c.id (c.codec.encode value))
+
+
+{-| Apply a function to the current value of a cell.
+-}
+modify : Cell a -> (a -> a) -> Action model
+modify ((Cell c) as cell) f =
+    IA.Action
+        (\registry ->
+            let
+                current =
+                    readSource (toSource cell) registry
+            in
+            Registry.insert c.id (c.codec.encode (f current)) registry
+        )
 
 
 {-| Apply an action to a registry. Exposed for tests and the runtime.
