@@ -4,6 +4,7 @@ module Rad exposing
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
     , Source, toSource, readSource
+    , Action, set, applyAction
     )
 
 {-| elm-rad — reactive cell DSL.
@@ -13,6 +14,7 @@ module Rad exposing
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
 @docs Source, toSource, readSource
+@docs Action, set, applyAction
 
 -}
 
@@ -168,3 +170,24 @@ toSource (Cell c) =
 readSource : Source a -> Registry -> a
 readSource =
     IS.readSource
+
+
+{-| A synchronous action against the cell registry. Phantom `model` parameter
+reserves type-level differentiation for later layers.
+-}
+type Action model
+    = Action (Registry -> Registry)
+
+
+{-| Set a cell to a given value.
+-}
+set : Cell a -> a -> Action model
+set (Cell c) value =
+    Action (Registry.insert c.id (c.codec.encode value))
+
+
+{-| Apply an action to a registry. Exposed for tests and the runtime.
+-}
+applyAction : Action model -> Registry -> Registry
+applyAction (Action f) registry =
+    f registry
