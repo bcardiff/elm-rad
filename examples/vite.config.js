@@ -13,6 +13,7 @@ export default defineConfig({
         greeting: resolve(__dirname, "greeting.html"),
         counter: resolve(__dirname, "counter.html"),
         swap: resolve(__dirname, "swap.html"),
+        "full-name": resolve(__dirname, "full-name.html"),
       },
     },
   },
