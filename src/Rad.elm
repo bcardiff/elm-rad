@@ -1,10 +1,12 @@
 module Rad exposing
-    ( Codec
+    ( Cell
+    , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
     )
 
 {-| elm-rad — reactive cell DSL.
 
+@docs Cell
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
 
@@ -67,3 +69,13 @@ maybeCodec inner =
                     Encode.null
     , decode = Decode.nullable inner.decode
     }
+
+
+{-| A reactive state cell holding a value of type `a`.
+-}
+type Cell a
+    = Cell
+        { id : Int
+        , key : String
+        , codec : Codec a
+        }
