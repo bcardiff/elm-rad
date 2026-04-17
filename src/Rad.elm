@@ -1,12 +1,12 @@
 module Rad exposing
     ( Codec
-    , boolCodec, floatCodec, intCodec, stringCodec
+    , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
     )
 
 {-| elm-rad — reactive cell DSL.
 
 @docs Codec
-@docs boolCodec, floatCodec, intCodec, stringCodec
+@docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
 
 -}
 
@@ -44,3 +44,26 @@ floatCodec =
 boolCodec : Codec Bool
 boolCodec =
     { encode = Encode.bool, decode = Decode.bool }
+
+
+{-| -}
+listCodec : Codec a -> Codec (List a)
+listCodec inner =
+    { encode = Encode.list inner.encode
+    , decode = Decode.list inner.decode
+    }
+
+
+{-| -}
+maybeCodec : Codec a -> Codec (Maybe a)
+maybeCodec inner =
+    { encode =
+        \m ->
+            case m of
+                Just v ->
+                    inner.encode v
+
+                Nothing ->
+                    Encode.null
+    , decode = Decode.nullable inner.decode
+    }

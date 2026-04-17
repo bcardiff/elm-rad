@@ -2,13 +2,13 @@ module CodecTest exposing (suite)
 
 import Expect
 import Json.Decode as Decode
-import Rad exposing (boolCodec, floatCodec, intCodec, stringCodec)
+import Rad exposing (boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec)
 import Test exposing (..)
 
 
 suite : Test
 suite =
-    describe "Primitive codec round-trips"
+    describe "Codec round-trips"
         [ test "stringCodec" <|
             \_ -> roundTrip stringCodec "hello" |> Expect.equal (Ok "hello")
         , test "intCodec" <|
@@ -17,6 +17,12 @@ suite =
             \_ -> roundTrip floatCodec 3.14 |> Expect.equal (Ok 3.14)
         , test "boolCodec" <|
             \_ -> roundTrip boolCodec True |> Expect.equal (Ok True)
+        , test "listCodec of strings" <|
+            \_ -> roundTrip (listCodec stringCodec) [ "a", "b" ] |> Expect.equal (Ok [ "a", "b" ])
+        , test "maybeCodec Just" <|
+            \_ -> roundTrip (maybeCodec intCodec) (Just 7) |> Expect.equal (Ok (Just 7))
+        , test "maybeCodec Nothing" <|
+            \_ -> roundTrip (maybeCodec intCodec) Nothing |> Expect.equal (Ok Nothing)
         ]
 
 
