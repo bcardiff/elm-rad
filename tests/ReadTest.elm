@@ -52,4 +52,25 @@ suite =
                 in
                 Expect.equal "ada lovelace"
                     (Read.run combined registry)
+        , test "derive produces a Source that reflects its Read's current value" <|
+            \_ ->
+                let
+                    ( model, registry0 ) =
+                        Rad.runBuilder init
+
+                    fullNameSource =
+                        Rad.derive
+                            (Read.map2 (\f l -> f ++ " " ++ l)
+                                (Read.read (Rad.toSource model.first))
+                                (Read.read (Rad.toSource model.last))
+                            )
+
+                    registry1 =
+                        Rad.applyAction (Rad.set model.first "grace") registry0
+                in
+                Expect.equal
+                    ( "ada lovelace", "grace lovelace" )
+                    ( Rad.readSource fullNameSource registry0
+                    , Rad.readSource fullNameSource registry1
+                    )
         ]

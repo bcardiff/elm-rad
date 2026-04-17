@@ -3,7 +3,7 @@ module Rad exposing
     , CellBuilder, build, with, runBuilder
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
-    , Source, toSource, readSource
+    , Source, toSource, readSource, derive
     , Action, set, modify, copy, batch, applyAction
     , AppDef, AppModel, run
     )
@@ -14,7 +14,7 @@ module Rad exposing
 @docs CellBuilder, build, with, runBuilder
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
-@docs Source, toSource, readSource
+@docs Source, toSource, readSource, derive
 @docs Action, set, modify, copy, batch, applyAction
 @docs AppDef, AppModel, run
 
@@ -27,6 +27,7 @@ import Rad.Engine
 import Rad.Internal.Action as IA
 import Rad.Internal.Registry as Registry exposing (Registry)
 import Rad.Internal.Source as IS
+import Rad.Read
 
 
 {-| A pair of encoder and decoder for serializing cell values.
@@ -169,6 +170,14 @@ toSource (Cell c) =
 readSource : Source a -> Registry -> a
 readSource =
     IS.readSource
+
+
+{-| Turn a `Read` into a `Source`. The resulting source recomputes its value
+from the registry on every read.
+-}
+derive : Rad.Read.Read a -> Source a
+derive readValue =
+    IS.Source (\registry -> Rad.Read.run readValue registry)
 
 
 {-| A synchronous action against the cell registry. Phantom `model` parameter
