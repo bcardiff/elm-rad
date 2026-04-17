@@ -4,7 +4,7 @@ module Rad exposing
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
     , Source, toSource, readSource
-    , Action, set, modify, copy, applyAction
+    , Action, set, modify, copy, batch, applyAction
     , AppDef, AppModel, run
     )
 
@@ -15,7 +15,7 @@ module Rad exposing
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
 @docs Source, toSource, readSource
-@docs Action, set, modify, copy, applyAction
+@docs Action, set, modify, copy, batch, applyAction
 @docs AppDef, AppModel, run
 
 -}
@@ -210,6 +210,16 @@ copy source (Cell c) =
     IA.Action
         (\registry ->
             Registry.insert c.id (c.codec.encode (readSource source registry)) registry
+        )
+
+
+{-| Combine a sequence of actions, applied in list order.
+-}
+batch : List (Action model) -> Action model
+batch actions =
+    IA.Action
+        (\registry ->
+            List.foldl (\action r -> IA.apply action r) registry actions
         )
 
 

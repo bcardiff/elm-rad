@@ -65,4 +65,52 @@ suite =
                 in
                 Expect.equal "X"
                     (Rad.readSource (Rad.toSource model.b) registry1)
+        , test "batch with empty list is a no-op" <|
+            \_ ->
+                let
+                    ( model, registry0 ) =
+                        Rad.runBuilder init
+
+                    registry1 =
+                        Rad.applyAction (Rad.batch []) registry0
+                in
+                Expect.equal "alice"
+                    (Rad.readSource (Rad.toSource model.name) registry1)
+        , test "batch applies actions in list order" <|
+            \_ ->
+                let
+                    ( model, registry0 ) =
+                        Rad.runBuilder init
+
+                    registry1 =
+                        Rad.applyAction
+                            (Rad.batch
+                                [ Rad.set model.name "bob"
+                                , Rad.modify model.name (\s -> s ++ "!")
+                                ]
+                            )
+                            registry0
+                in
+                Expect.equal "bob!"
+                    (Rad.readSource (Rad.toSource model.name) registry1)
+        , test "nested batch preserves execution order" <|
+            \_ ->
+                let
+                    ( model, registry0 ) =
+                        Rad.runBuilder init
+
+                    registry1 =
+                        Rad.applyAction
+                            (Rad.batch
+                                [ Rad.batch
+                                    [ Rad.set model.name "bob"
+                                    , Rad.modify model.name (\s -> s ++ "1")
+                                    ]
+                                , Rad.modify model.name (\s -> s ++ "2")
+                                ]
+                            )
+                            registry0
+                in
+                Expect.equal "bob12"
+                    (Rad.readSource (Rad.toSource model.name) registry1)
         ]
