@@ -1,2 +1,5 @@
 elm-stuff/
 docs.json
+examples/node_modules/
+examples/dist/
+*.local.*

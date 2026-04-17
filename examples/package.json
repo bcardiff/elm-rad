@@ -1,0 +1,16 @@
+{
+  "name": "elm-rad-examples",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "elm": "^0.19.1-6",
+    "vite": "^6.0.0",
+    "vite-plugin-elm": "^3.0.0"
+  }
+}
