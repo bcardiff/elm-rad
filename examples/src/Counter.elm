@@ -21,6 +21,7 @@ app =
                 , button { label = "+", onClick = modify model.n (\n -> n + 1) }
                 , button { label = "reset", onClick = set model.n 0 }
                 ]
+    , reactions = \_ _ -> []
     }
 
 

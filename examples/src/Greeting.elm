@@ -19,6 +19,7 @@ app =
                 [ input { label = "Name", cell = model.name }
                 , watch (toSource model.name) (\n -> text ("Hello, " ++ n ++ "!"))
                 ]
+    , reactions = \_ _ -> []
     }
 
 

@@ -8,6 +8,7 @@ module Rad exposing
     , Action, set, modify, copy, batch, applyAction
     , Request, noRequest, mapRequestError
     , AppDef, AppModel, run
+    , Reaction
     )
 
 {-| elm-rad — reactive cell DSL.
@@ -21,6 +22,7 @@ module Rad exposing
 @docs Action, set, modify, copy, batch, applyAction
 @docs Request, noRequest, mapRequestError
 @docs AppDef, AppModel, run
+@docs Reaction
 
 -}
 
@@ -29,6 +31,8 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Rad.Engine
 import Rad.Internal.Action as IA
+import Rad.Internal.Msg as IMsg
+import Rad.Internal.Reaction as IReaction
 import Rad.Internal.Registry as Registry exposing (Registry)
 import Rad.Internal.Request as IRequest
 import Rad.Internal.Source as IS
@@ -336,20 +340,29 @@ mapRequestError =
     IRequest.mapError
 
 
+{-| A reaction — a rule that says "when this source's value changes, run
+this request and store the result in this cell." Constructed via `on`.
+Opaque.
+-}
+type alias Reaction model =
+    IReaction.Reaction model
+
+
 {-| A public alias for the runtime's internal model tuple. Used as the model
 type of a `Program` so user code does not have to name `Rad.Internal.Registry`.
 -}
 type alias AppModel model =
-    ( model, Registry )
+    ( model, Registry, IReaction.ReactionState )
 
 
 {-| An application definition. Grows additional fields in later layers
-(`reactions`, `persist`).
+(`persist`).
 -}
 type alias AppDef view model computed =
     { init : CellBuilder model
     , computed : model -> computed
     , view : model -> computed -> view
+    , reactions : model -> computed -> List (Reaction model)
     }
 
 
@@ -366,12 +379,26 @@ run engine app =
             runBuilder app.init
     in
     Browser.element
-        { init = \() -> ( ( model, initialRegistry ), Cmd.none )
+        { init =
+            \() ->
+                ( ( model, initialRegistry, IReaction.emptyState )
+                , Cmd.none
+                )
         , update =
-            \msg ( m, registry ) ->
-                ( ( m, Rad.Engine.applyMsg msg registry ), Cmd.none )
+            \msg ( m, registry, reactionState ) ->
+                case msg of
+                    IMsg.ApplyAction action ->
+                        ( ( m, IA.apply action registry, reactionState )
+                        , Cmd.none
+                        )
+
+                    IMsg.ReactionResult _ _ _ ->
+                        -- Wired in Task 4.4
+                        ( ( m, registry, reactionState )
+                        , Cmd.none
+                        )
         , subscriptions = \_ -> Sub.none
         , view =
-            \( m, registry ) ->
+            \( m, registry, _ ) ->
                 engine.toHtml registry (app.view m (app.computed m))
         }

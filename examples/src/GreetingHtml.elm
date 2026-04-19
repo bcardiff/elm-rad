@@ -19,6 +19,7 @@ app =
                 [ input [ bind model.name ] []
                 , watch (toSource model.name) (\n -> text ("Hello, " ++ n ++ "!"))
                 ]
+    , reactions = \_ _ -> []
     }
 
 

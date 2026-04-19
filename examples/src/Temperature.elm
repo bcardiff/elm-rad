@@ -40,6 +40,7 @@ app =
                 , watch c.fahrenheit (\f -> text ("°F: " ++ f))
                 , watch c.kelvin (\k -> text ("K: " ++ k))
                 ]
+    , reactions = \_ _ -> []
     }
 
 

@@ -38,6 +38,7 @@ app =
                 , input { label = "Last", cell = model.last }
                 , watch c.full (\name -> text ("Full name: " ++ name))
                 ]
+    , reactions = \_ _ -> []
     }
 
 
