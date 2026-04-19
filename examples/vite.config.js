@@ -18,6 +18,7 @@ export default defineConfig({
         temperature: resolve(__dirname, "temperature.html"),
         "fetch-joke": resolve(__dirname, "fetch-joke.html"),
         "github-user": resolve(__dirname, "github-user.html"),
+        "post-note": resolve(__dirname, "post-note.html"),
       },
     },
   },
