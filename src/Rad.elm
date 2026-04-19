@@ -6,6 +6,7 @@ module Rad exposing
     , Remote(..), remoteCodec
     , Source, toSource, readSource, derive
     , Action, set, modify, copy, batch, applyAction
+    , Request, noRequest, mapRequestError
     , AppDef, AppModel, run
     )
 
@@ -18,6 +19,7 @@ module Rad exposing
 @docs Remote, remoteCodec
 @docs Source, toSource, readSource, derive
 @docs Action, set, modify, copy, batch, applyAction
+@docs Request, noRequest, mapRequestError
 @docs AppDef, AppModel, run
 
 -}
@@ -28,6 +30,7 @@ import Json.Encode as Encode
 import Rad.Engine
 import Rad.Internal.Action as IA
 import Rad.Internal.Registry as Registry exposing (Registry)
+import Rad.Internal.Request as IRequest
 import Rad.Internal.Source as IS
 import Rad.Read
 
@@ -307,6 +310,30 @@ batch actions =
 applyAction : Action model -> Registry -> Registry
 applyAction =
     IA.apply
+
+
+{-| An asynchronous request produced by an effect library (e.g., `Rad.Http`).
+Opaque; Layer 2 constructors are `noRequest` and values returned by
+effect-library functions like `Rad.Http.httpGet`.
+-}
+type alias Request err a =
+    IRequest.Request err a
+
+
+{-| A Request that does nothing. Returned from the `a -> Request err r`
+transform in a reaction to signal "don't dispatch for this trigger value."
+-}
+noRequest : Request err a
+noRequest =
+    IRequest.NoRequest
+
+
+{-| Transform a Request's error type. Useful for mapping a library-defined
+error (e.g., `Rad.Http.RequestError`) into a domain error type.
+-}
+mapRequestError : (e -> f) -> Request e a -> Request f a
+mapRequestError =
+    IRequest.mapError
 
 
 {-| A public alias for the runtime's internal model tuple. Used as the model
