@@ -1,9 +1,10 @@
 import { defineConfig } from "vite";
 import { resolve } from "path";
 import elm from "vite-plugin-elm";
+import { mockApi } from "./mock-api-plugin.js";
 
 export default defineConfig({
-  plugins: [elm()],
+  plugins: [elm(), mockApi()],
   appType: "mpa",
   build: {
     rollupOptions: {
