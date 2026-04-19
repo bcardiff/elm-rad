@@ -23,12 +23,12 @@ app =
     , computed =
         \model ->
             { fahrenheit =
-                derive
+                derive stringCodec
                     (Read.map (formatTemp << toFahrenheit)
                         (Read.read (toSource model.celsius))
                     )
             , kelvin =
-                derive
+                derive stringCodec
                     (Read.map (formatTemp << toKelvin)
                         (Read.read (toSource model.celsius))
                     )

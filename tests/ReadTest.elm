@@ -59,7 +59,7 @@ suite =
                         Rad.runBuilder init
 
                     fullNameSource =
-                        Rad.derive
+                        Rad.derive stringCodec
                             (Read.map2 (\f l -> f ++ " " ++ l)
                                 (Read.read (Rad.toSource model.first))
                                 (Read.read (Rad.toSource model.last))

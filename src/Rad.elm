@@ -219,14 +219,16 @@ type alias Source a =
 toSource : Cell a -> Source a
 toSource (Cell c) =
     IS.Source
-        (\registry ->
-            case Registry.get c.id registry of
-                Just v ->
-                    Result.withDefault c.initial (Decode.decodeValue c.codec.decode v)
+        { read =
+            \registry ->
+                case Registry.get c.id registry of
+                    Just v ->
+                        Result.withDefault c.initial (Decode.decodeValue c.codec.decode v)
 
-                Nothing ->
-                    c.initial
-        )
+                    Nothing ->
+                        c.initial
+        , codec = c.codec
+        }
 
 
 {-| Read a source against a registry. Exposed for tests and for the runtime.
@@ -237,11 +239,15 @@ readSource =
 
 
 {-| Turn a `Read` into a `Source`. The resulting source recomputes its value
-from the registry on every read.
+from the registry on every read, and carries the supplied codec so the runtime
+can encode derived values (for trigger-change detection).
 -}
-derive : Rad.Read.Read a -> Source a
-derive readValue =
-    IS.Source (\registry -> Rad.Read.run readValue registry)
+derive : Codec a -> Rad.Read.Read a -> Source a
+derive codecA readValue =
+    IS.Source
+        { read = \registry -> Rad.Read.run readValue registry
+        , codec = codecA
+        }
 
 
 {-| A synchronous action against the cell registry. Phantom `model` parameter

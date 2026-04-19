@@ -25,7 +25,7 @@ app =
     , computed =
         \model ->
             { full =
-                derive
+                derive stringCodec
                     (Read.map2 (\f l -> f ++ " " ++ l)
                         (Read.read (toSource model.first))
                         (Read.read (toSource model.last))
