@@ -54,6 +54,8 @@ suite =
                             (\_ -> IRequest.NoRequest)
                             model.out
 
+                    -- Simulate: writeLoading (seq 1), writeLoading (seq 2),
+                    -- then seq-2's result arrives, then seq-1's result arrives.
                     resultFor tag =
                         outCodec.encode (Done tag)
 
@@ -62,6 +64,10 @@ suite =
                             |> r.writeLoading
                             |> r.writeLoading
 
+                    -- In the runtime, writeResult is only called for the latest seq.
+                    -- Here we prove that writing the earlier result after the later one
+                    -- would overwrite — which is WHY the runtime filters by seq, not
+                    -- because writeResult itself filters. Assert the overwrite semantics.
                     registryLateResult =
                         registryAfterTwoDispatch
                             |> r.writeResult (resultFor "two")
