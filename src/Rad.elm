@@ -27,6 +27,7 @@ module Rad exposing
 -}
 
 import Browser
+import Dict
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Rad.Engine
@@ -424,26 +425,118 @@ run engine app =
     let
         ( model, initialRegistry ) =
             runBuilder app.init
+
+        fireReactions : Registry -> IReaction.ReactionState -> ( Registry, IReaction.ReactionState, Cmd (Rad.Engine.Msg model) )
+        fireReactions registry state =
+            let
+                reactions =
+                    app.reactions model (app.computed model)
+
+                listLen =
+                    List.length reactions
+
+                prunedState =
+                    { triggers = Dict.filter (\k _ -> k < listLen) state.triggers
+                    , seqs = Dict.filter (\k _ -> k < listLen) state.seqs
+                    }
+
+                step ( i, IReaction.Reaction r ) ( reg, st, cmds ) =
+                    let
+                        newTrigger =
+                            r.readTrigger reg
+                    in
+                    case Dict.get i st.triggers of
+                        Just prev ->
+                            if Encode.encode 0 prev == Encode.encode 0 newTrigger then
+                                ( reg, st, cmds )
+
+                            else
+                                fireOne i newTrigger r reg st cmds
+
+                        Nothing ->
+                            fireOne i newTrigger r reg st cmds
+
+                fireOne i newTrigger r reg st cmds =
+                    let
+                        newSeq =
+                            (Dict.get i st.seqs |> Maybe.withDefault 0) + 1
+
+                        st1 =
+                            { triggers = Dict.insert i newTrigger st.triggers
+                            , seqs = Dict.insert i newSeq st.seqs
+                            }
+                    in
+                    case r.buildRequest reg of
+                        IReaction.SkipRequest ->
+                            ( reg, st1, cmds )
+
+                        IReaction.DispatchTask task ->
+                            ( r.writeLoading reg
+                            , st1
+                            , Task.attempt (IMsg.ReactionResult i newSeq) task :: cmds
+                            )
+
+                ( finalReg, finalState, finalCmds ) =
+                    List.foldl step
+                        ( registry, prunedState, [] )
+                        (List.indexedMap Tuple.pair reactions)
+            in
+            ( finalReg, finalState, Cmd.batch finalCmds )
     in
     Browser.element
         { init =
             \() ->
-                ( ( model, initialRegistry, IReaction.emptyState )
-                , Cmd.none
-                )
+                let
+                    ( reg1, state1, cmd ) =
+                        fireReactions initialRegistry IReaction.emptyState
+                in
+                ( ( model, reg1, state1 ), cmd )
         , update =
-            \msg ( m, registry, reactionState ) ->
+            \msg ( m, registry, state ) ->
                 case msg of
                     IMsg.ApplyAction action ->
-                        ( ( m, IA.apply action registry, reactionState )
-                        , Cmd.none
-                        )
+                        let
+                            reg1 =
+                                IA.apply action registry
 
-                    IMsg.ReactionResult _ _ _ ->
-                        -- Wired in Task 4.4
-                        ( ( m, registry, reactionState )
-                        , Cmd.none
-                        )
+                            ( reg2, state2, cmd ) =
+                                fireReactions reg1 state
+                        in
+                        ( ( m, reg2, state2 ), cmd )
+
+                    IMsg.ReactionResult i receivedSeq result ->
+                        case Dict.get i state.seqs of
+                            Just expected ->
+                                if expected /= receivedSeq then
+                                    ( ( m, registry, state ), Cmd.none )
+
+                                else
+                                    case result of
+                                        Ok encoded ->
+                                            let
+                                                reactions =
+                                                    app.reactions m (app.computed m)
+
+                                                maybeReaction =
+                                                    reactions
+                                                        |> List.drop i
+                                                        |> List.head
+                                            in
+                                            case maybeReaction of
+                                                Just (IReaction.Reaction r) ->
+                                                    ( ( m, r.writeResult encoded registry, state )
+                                                    , Cmd.none
+                                                    )
+
+                                                Nothing ->
+                                                    ( ( m, registry, state ), Cmd.none )
+
+                                        Err _ ->
+                                            -- Task Never Value: unreachable.
+                                            ( ( m, registry, state ), Cmd.none )
+
+                            Nothing ->
+                                ( ( m, registry, state ), Cmd.none )
         , subscriptions = \_ -> Sub.none
         , view =
             \( m, registry, _ ) ->
