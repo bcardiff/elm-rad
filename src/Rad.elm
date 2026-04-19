@@ -8,7 +8,7 @@ module Rad exposing
     , Action, set, modify, copy, batch, applyAction
     , Request, noRequest, mapRequestError
     , AppDef, AppModel, run
-    , Reaction
+    , Reaction, on
     )
 
 {-| elm-rad — reactive cell DSL.
@@ -22,7 +22,7 @@ module Rad exposing
 @docs Action, set, modify, copy, batch, applyAction
 @docs Request, noRequest, mapRequestError
 @docs AppDef, AppModel, run
-@docs Reaction
+@docs Reaction, on
 
 -}
 
@@ -37,6 +37,7 @@ import Rad.Internal.Registry as Registry exposing (Registry)
 import Rad.Internal.Request as IRequest
 import Rad.Internal.Source as IS
 import Rad.Read
+import Task
 
 
 {-| A pair of encoder and decoder for serializing cell values.
@@ -346,6 +347,52 @@ Opaque.
 -}
 type alias Reaction model =
     IReaction.Reaction model
+
+
+{-| Build a reaction.
+
+    reactions =
+        \_ _ ->
+            [ on (toSource model.tick) (\_ -> Rad.Http.httpGet handler "/api/joke" jokeDecoder) model.joke
+            ]
+
+-}
+on :
+    Source a
+    -> (a -> Request err r)
+    -> Cell (Remote err r)
+    -> Reaction model
+on source transform (Cell target) =
+    let
+        sourceCodec =
+            IS.codec source
+
+        targetCodec =
+            target.codec
+    in
+    IReaction.Reaction
+        { readTrigger =
+            \registry ->
+                sourceCodec.encode (IS.readSource source registry)
+        , buildRequest =
+            \registry ->
+                case transform (IS.readSource source registry) of
+                    IRequest.NoRequest ->
+                        IReaction.SkipRequest
+
+                    IRequest.DispatchRequest task ->
+                        IReaction.DispatchTask
+                            (task
+                                |> Task.map (\r -> targetCodec.encode (Done r))
+                                |> Task.onError (\e -> Task.succeed (targetCodec.encode (Failed e)))
+                            )
+        , writeLoading =
+            \registry ->
+                Registry.insert target.id (targetCodec.encode Loading) registry
+        , writeResult =
+            \encoded registry ->
+                Registry.insert target.id encoded registry
+        }
 
 
 {-| A public alias for the runtime's internal model tuple. Used as the model
