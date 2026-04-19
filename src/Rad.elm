@@ -3,6 +3,7 @@ module Rad exposing
     , CellBuilder, build, with, runBuilder
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
+    , Remote(..), remoteCodec
     , Source, toSource, readSource, derive
     , Action, set, modify, copy, batch, applyAction
     , AppDef, AppModel, run
@@ -14,6 +15,7 @@ module Rad exposing
 @docs CellBuilder, build, with, runBuilder
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
+@docs Remote, remoteCodec
 @docs Source, toSource, readSource, derive
 @docs Action, set, modify, copy, batch, applyAction
 @docs AppDef, AppModel, run
@@ -83,6 +85,68 @@ maybeCodec inner =
                     Encode.null
     , decode = Decode.nullable inner.decode
     }
+
+
+{-| A remote resource in one of four states.
+-}
+type Remote err a
+    = Idle
+    | Loading
+    | Failed err
+    | Done a
+
+
+{-| A codec for `Remote err a` given codecs for the error and value types.
+
+The wire format is a tagged object: `{"tag":"Idle"}`, `{"tag":"Loading"}`,
+`{"tag":"Failed","value":<errEncoded>}`, `{"tag":"Done","value":<valueEncoded>}`.
+
+-}
+remoteCodec : Codec err -> Codec a -> Codec (Remote err a)
+remoteCodec errCodec valueCodec =
+    let
+        encode r =
+            case r of
+                Idle ->
+                    Encode.object [ ( "tag", Encode.string "Idle" ) ]
+
+                Loading ->
+                    Encode.object [ ( "tag", Encode.string "Loading" ) ]
+
+                Failed e ->
+                    Encode.object
+                        [ ( "tag", Encode.string "Failed" )
+                        , ( "value", errCodec.encode e )
+                        ]
+
+                Done v ->
+                    Encode.object
+                        [ ( "tag", Encode.string "Done" )
+                        , ( "value", valueCodec.encode v )
+                        ]
+
+        decode =
+            Decode.field "tag" Decode.string
+                |> Decode.andThen
+                    (\tag ->
+                        case tag of
+                            "Idle" ->
+                                Decode.succeed Idle
+
+                            "Loading" ->
+                                Decode.succeed Loading
+
+                            "Failed" ->
+                                Decode.map Failed (Decode.field "value" errCodec.decode)
+
+                            "Done" ->
+                                Decode.map Done (Decode.field "value" valueCodec.decode)
+
+                            other ->
+                                Decode.fail ("unknown Remote tag: " ++ other)
+                    )
+    in
+    { encode = encode, decode = decode }
 
 
 {-| A reactive state cell holding a value of type `a`.
