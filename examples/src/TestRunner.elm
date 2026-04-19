@@ -31,7 +31,6 @@ import Rad
 import Rad.Http as Http exposing (RequestError)
 import Rad.Internal.Reaction as IReaction
 import Rad.Internal.Registry as Registry
-import Rad.Internal.Request as IRequest
 import Task
 
 
