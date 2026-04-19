@@ -19,6 +19,7 @@ export default defineConfig({
         "fetch-joke": resolve(__dirname, "fetch-joke.html"),
         "github-user": resolve(__dirname, "github-user.html"),
         "post-note": resolve(__dirname, "post-note.html"),
+        "derived-search": resolve(__dirname, "derived-search.html"),
       },
     },
   },
