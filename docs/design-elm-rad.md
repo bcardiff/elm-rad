@@ -312,6 +312,20 @@ bindDebouncedWith : List CommitTrigger -> DebouncedCell String -> Attribute mode
 
 Both `raw` and `settled` are persisted, plus whether a timer was pending. On restore, if a timer was pending, the runtime resumes it (or commits immediately if the remaining time has elapsed). This means a user can refresh mid-type and resume exactly where they were.
 
+### Implementation notes
+
+Recorded here so future contributors don't re-debate them.
+
+1. **Three Registry slots per `DebouncedCell`.** `withDebounced` allocates raw, settled, and a per-cell timer sequence counter. The raw and settled slots hold encoded `a` values; the timer-sequence slot holds an `Int`.
+
+2. **Seq-based supersession.** Each `fromDebouncedInput` bumps the timer sequence; the scheduled `Process.sleep` task captures the seq it was created with. On fire, the runtime compares: if the fire's seq is less than the current seq, the fire is stale and the update is dropped. Latest input always wins without cancelling tasks.
+
+3. **`commit` and `revert` are pure Actions.** They copy between raw and settled via the Registry. They do **not** touch the timer sequence. A pending timer fire after `commit` or `revert` finds raw and settled equal and performs a no-op copy. If the user typed again, that input bumped the seq and the pending fire is already stale.
+
+4. **`synced` is derived.** Reads raw and settled via the cell's codec, compares their JSON-encoded forms. No stored flag — the source of truth is `raw == settled`. A stored flag would require every raw/settled write site to maintain it; the drift risk outweighed any observable win.
+
+5. **Per-binding trigger sets.** `bindDebouncedWith` decides its `onInput` handler at attribute-wiring time: if the trigger list contains `OnTimeout`, the handler uses `Rad.Engine.fromDebouncedInput` (schedules a timer); otherwise it uses an internal `Action` that writes raw and bumps the seq without scheduling. `OnEnter` and `OnBlur` attach commit handlers regardless of whether `OnTimeout` is present.
+
 ### Why debounce is a cell type, not a reaction modifier
 
 Debounce is fundamentally about the *value lifecycle* — two versions of the same data (immediate vs settled) that the view and reactions consume differently. Making it a cell type means `raw` and `settled` are both available as sources. If debounce were a reaction modifier, the view couldn't distinguish between the instant and settled values.
