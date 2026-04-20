@@ -1,22 +1,24 @@
 module Rad.Internal.Debounced exposing
     ( DebouncedCell(..)
     , Ref
+    , applyInput
+    , applyTimerFire
     , core
+    , getTimerSeq
+    , rawSetAction
     , ref
     )
 
-{-| Internal shape of `DebouncedCell a`. The constructor is exposed to `Rad`
-(for `withDebounced`, `raw`, `settled`, `commit`, `revert`), to `Rad.Engine`
-(for `fromDebouncedInput`), and to `Rad.View` (for `bindDebouncedWith`).
-User code only sees `Rad.DebouncedCell a`, opaquely.
+{-| Internal shape of `DebouncedCell a` plus the pure helpers the runtime,
+`Rad.View`, and tests call. User code only sees `Rad.DebouncedCell a`.
 -}
 
 import Json.Decode as Decode
+import Json.Encode as Encode
+import Rad.Internal.Action as IA
+import Rad.Internal.Registry as Registry exposing (Registry)
 
 
-{-| Full internal record. Holds the three Registry slot IDs, the codec,
-delay, and initial value (used for decode fallback in source readers).
--}
 type DebouncedCell a
     = DebouncedCell (Core a)
 
@@ -36,11 +38,6 @@ core (DebouncedCell c) =
     c
 
 
-{-| A type-erased slice used by `Msg` variants. Carries everything `update`
-needs to dispatch debounced-input and timer-fire messages (the three slot IDs
-and the delay), but not the codec — values are already encoded by the time
-they reach the Msg, and the timer-fire handler just copies bytes raw→settled.
--}
 type alias Ref =
     { rawId : Int
     , settledId : Int
@@ -56,3 +53,70 @@ ref (DebouncedCell c) =
     , timerSeqId = c.timerSeqId
     , delayMs = c.delayMs
     }
+
+
+{-| Read the current timer sequence counter for a debounced cell. Defaults
+to 0 if absent or non-integer.
+-}
+getTimerSeq : Int -> Registry -> Int
+getTimerSeq timerSeqId registry =
+    Registry.get timerSeqId registry
+        |> Maybe.andThen (Decode.decodeValue Decode.int >> Result.toMaybe)
+        |> Maybe.withDefault 0
+
+
+{-| Apply a DebouncedInput message's state change: write the encoded value
+to the raw slot and bump the timer sequence. Returns the registry plus the
+newly-assigned seq number (used by the caller to schedule the fire task).
+-}
+applyInput : Ref -> Encode.Value -> Registry -> ( Registry, Int )
+applyInput r encodedValue registry =
+    let
+        newSeq =
+            getTimerSeq r.timerSeqId registry + 1
+    in
+    ( registry
+        |> Registry.insert r.rawId encodedValue
+        |> Registry.insert r.timerSeqId (Encode.int newSeq)
+    , newSeq
+    )
+
+
+{-| Apply a DebouncedTimerFire message's state change: if the fired seq is
+stale (less than the current seq), no-op. Otherwise copy raw → settled.
+-}
+applyTimerFire : Ref -> Int -> Registry -> Registry
+applyTimerFire r firedSeq registry =
+    let
+        currentSeq =
+            getTimerSeq r.timerSeqId registry
+    in
+    if firedSeq < currentSeq then
+        registry
+
+    else
+        case Registry.get r.rawId registry of
+            Just rawValue ->
+                Registry.insert r.settledId rawValue registry
+
+            Nothing ->
+                registry
+
+
+{-| A plain `Action` that writes raw and bumps timerSeq without scheduling a
+timer. Used by `Rad.View.bindDebouncedWith` for bindings whose trigger list
+does not include `OnTimeout`, so keystrokes don't spawn timers that would
+auto-commit.
+-}
+rawSetAction : DebouncedCell a -> a -> IA.Action model
+rawSetAction (DebouncedCell c) value =
+    IA.Action
+        (\registry ->
+            let
+                newSeq =
+                    getTimerSeq c.timerSeqId registry + 1
+            in
+            registry
+                |> Registry.insert c.rawId (c.codec.encode value)
+                |> Registry.insert c.timerSeqId (Encode.int newSeq)
+        )
