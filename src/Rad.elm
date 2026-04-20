@@ -1,5 +1,6 @@
 module Rad exposing
     ( Cell
+    , DebouncedCell, withDebounced
     , CellBuilder, build, with, runBuilder
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -14,6 +15,7 @@ module Rad exposing
 {-| elm-rad — reactive cell DSL.
 
 @docs Cell
+@docs DebouncedCell, withDebounced
 @docs CellBuilder, build, with, runBuilder
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -32,6 +34,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Rad.Engine
 import Rad.Internal.Action as IA
+import Rad.Internal.Debounced as IDebounced
 import Rad.Internal.Msg as IMsg
 import Rad.Internal.Reaction as IReaction
 import Rad.Internal.Registry as Registry exposing (Registry)
@@ -213,6 +216,53 @@ runBuilder (CellBuilder b) =
     , b.metas
         |> List.foldl (\( id, v ) -> Registry.insert id v) Registry.empty
     )
+
+
+{-| A cell with settle semantics. Holds two observable values — `raw` (updates
+on every keystroke or `fromDebouncedInput`) and `settled` (updates on commit,
+revert, or after a timer). Constructed via `withDebounced`. Opaque.
+-}
+type alias DebouncedCell a =
+    IDebounced.DebouncedCell a
+
+
+{-| Add a debounced cell to the builder. Allocates three Registry slots
+(raw, settled, and a per-cell timer sequence counter) seeded from `initial`.
+-}
+withDebounced : String -> Float -> a -> Codec a -> CellBuilder (DebouncedCell a -> rest) -> CellBuilder rest
+withDebounced _ delayMs initial codec (CellBuilder b) =
+    let
+        rawId =
+            b.nextId
+
+        settledId =
+            b.nextId + 1
+
+        timerSeqId =
+            b.nextId + 2
+
+        cell =
+            IDebounced.DebouncedCell
+                { rawId = rawId
+                , settledId = settledId
+                , timerSeqId = timerSeqId
+                , codec = codec
+                , delayMs = delayMs
+                , initial = initial
+                }
+
+        encodedInitial =
+            codec.encode initial
+    in
+    CellBuilder
+        { nextId = b.nextId + 3
+        , metas =
+            ( timerSeqId, Encode.int 0 )
+                :: ( settledId, encodedInitial )
+                :: ( rawId, encodedInitial )
+                :: b.metas
+        , ctor = b.ctor cell
+        }
 
 
 {-| Anything readable. Cells, derived values, and later debounced/validated
