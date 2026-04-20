@@ -24,6 +24,7 @@ export default defineConfig({
         "search-debounced": resolve(__dirname, "search-debounced.html"),
         "custom-triggers": resolve(__dirname, "custom-triggers.html"),
         "required-name": resolve(__dirname, "required-name.html"),
+        "email-format": resolve(__dirname, "email-format.html"),
       },
     },
   },
