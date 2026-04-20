@@ -2,7 +2,7 @@ module Rad exposing
     ( Cell
     , DebouncedCell, withDebounced
     , raw, settled, synced, commit, revert
-    , ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation(..), validationCodec
+    , ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation(..), validationCodec, runSyncOnly
     , CellBuilder, build, with, runBuilder
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -19,7 +19,7 @@ module Rad exposing
 @docs Cell
 @docs DebouncedCell, withDebounced
 @docs raw, settled, synced, commit, revert
-@docs ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation, validationCodec
+@docs ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation, validationCodec, runSyncOnly
 @docs CellBuilder, build, with, runBuilder
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -956,3 +956,91 @@ run engine app =
             \( m, registry, _ ) ->
                 engine.toHtml registry (app.view m (app.computed m))
         }
+
+
+{-| Run the sync portions of a validator without dispatching any async work.
+Returns `Just settled` if a final state is reachable (all Sync, with or
+without short-circuiting Compose), or `Nothing` if an Async must run.
+
+This is exposed primarily for tests and for a potential future sync fast-path
+in the runtime.
+
+-}
+runSyncOnly : Validator err a -> a -> Maybe (Validation err a)
+runSyncOnly validator value =
+    case validator of
+        IValidated.Sync f ->
+            case f value of
+                Ok a ->
+                    Just (Valid a)
+
+                Err errs ->
+                    Just (Invalid errs)
+
+        IValidated.Async _ ->
+            Nothing
+
+        IValidated.Compose validators ->
+            runSyncCompose validators value
+
+
+runSyncCompose : List (Validator err a) -> a -> Maybe (Validation err a)
+runSyncCompose validators value =
+    case validators of
+        [] ->
+            Just (Valid value)
+
+        v :: rest ->
+            case runSyncOnly v value of
+                Nothing ->
+                    Nothing
+
+                Just (Valid currentValue) ->
+                    runSyncCompose rest currentValue
+
+                Just other ->
+                    Just other
+
+
+applyValidator : Validator err a -> a -> Task.Task Never (Validation err a)
+applyValidator validator value =
+    case validator of
+        IValidated.Sync f ->
+            case f value of
+                Ok a ->
+                    Task.succeed (Valid a)
+
+                Err errs ->
+                    Task.succeed (Invalid errs)
+
+        IValidated.Async buildReq ->
+            case buildReq value of
+                IRequest.NoRequest ->
+                    Task.succeed (Valid value)
+
+                IRequest.DispatchRequest task ->
+                    task
+                        |> Task.map Valid
+                        |> Task.onError (\errs -> Task.succeed (Invalid errs))
+
+        IValidated.Compose validators ->
+            applyCompose validators value
+
+
+applyCompose : List (Validator err a) -> a -> Task.Task Never (Validation err a)
+applyCompose validators value =
+    case validators of
+        [] ->
+            Task.succeed (Valid value)
+
+        v :: rest ->
+            applyValidator v value
+                |> Task.andThen
+                    (\vState ->
+                        case vState of
+                            Valid currentValue ->
+                                applyCompose rest currentValue
+
+                            _ ->
+                                Task.succeed vState
+                    )
