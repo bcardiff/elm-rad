@@ -23,6 +23,7 @@ export default defineConfig({
         "debounce-echo": resolve(__dirname, "debounce-echo.html"),
         "search-debounced": resolve(__dirname, "search-debounced.html"),
         "custom-triggers": resolve(__dirname, "custom-triggers.html"),
+        "required-name": resolve(__dirname, "required-name.html"),
       },
     },
   },
