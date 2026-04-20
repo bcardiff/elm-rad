@@ -21,6 +21,7 @@ export default defineConfig({
         "post-note": resolve(__dirname, "post-note.html"),
         "derived-search": resolve(__dirname, "derived-search.html"),
         "debounce-echo": resolve(__dirname, "debounce-echo.html"),
+        "search-debounced": resolve(__dirname, "search-debounced.html"),
       },
     },
   },
