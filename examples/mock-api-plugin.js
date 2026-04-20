@@ -73,6 +73,15 @@ export function mockApi() {
         const q = url.searchParams.get("q") || "";
         sendJson(res, { query: q, matches: [q + "-alpha", q + "-beta", q + "-gamma"] });
       });
+
+      // GET /api/username-check?q=<name>
+      // "taken" → unavailable; anything else → available
+      server.middlewares.use("/api/username-check", (req, res, next) => {
+        if (req.method !== "GET") return next();
+        const url = new URL(req.url || "/", "http://localhost");
+        const q = url.searchParams.get("q") || "";
+        sendJson(res, { available: q !== "taken" }, 1500);
+      });
     },
   };
 }
