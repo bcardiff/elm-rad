@@ -2,6 +2,7 @@ module SimpleView exposing
     ( SimpleView
     , button
     , col
+    , debouncedInput
     , input
     , simpleViewEngine
     , text
@@ -11,9 +12,22 @@ module SimpleView exposing
 import Html
 import Html.Attributes
 import Html.Events
-import Rad exposing (Action, Cell, Source, readSource, set, toSource)
-import Rad.Engine exposing (Msg, ViewEngine, fromAction)
+import Json.Decode as Decode
+import Rad
+    exposing
+        ( Action
+        , Cell
+        , DebouncedCell
+        , Source
+        , commit
+        , readSource
+        , set
+        , toSource
+        )
+import Rad.Engine exposing (Msg, ViewEngine, fromAction, fromDebouncedInput)
+import Rad.Internal.Debounced as IDebounced
 import Rad.Internal.Registry exposing (Registry)
+import Rad.View exposing (CommitTrigger(..))
 
 
 type SimpleView model
@@ -38,6 +52,63 @@ input { label, cell } =
                     [ Html.Attributes.value (readSource (toSource cell) registry)
                     , Html.Events.onInput (\v -> fromAction (set cell v))
                     ]
+                    []
+                ]
+        )
+
+
+debouncedInput :
+    { label : String, cell : DebouncedCell String, triggers : List CommitTrigger }
+    -> SimpleView model
+debouncedInput { label, cell, triggers } =
+    SimpleView
+        (\registry ->
+            let
+                inputHandler =
+                    if List.member OnTimeout triggers then
+                        \v -> fromDebouncedInput cell v
+
+                    else
+                        \v -> fromAction (IDebounced.rawSetAction cell v)
+
+                commitMsg =
+                    fromAction (commit cell)
+
+                triggerAttrs =
+                    List.filterMap
+                        (\t ->
+                            case t of
+                                OnEnter ->
+                                    Just
+                                        (Html.Events.on "keydown"
+                                            (Decode.field "key" Decode.string
+                                                |> Decode.andThen
+                                                    (\k ->
+                                                        if k == "Enter" then
+                                                            Decode.succeed commitMsg
+
+                                                        else
+                                                            Decode.fail "non-Enter key"
+                                                    )
+                                            )
+                                        )
+
+                                OnBlur ->
+                                    Just (Html.Events.onBlur commitMsg)
+
+                                OnTimeout ->
+                                    Nothing
+                        )
+                        triggers
+            in
+            Html.label []
+                [ Html.text (label ++ ": ")
+                , Html.input
+                    ([ Html.Attributes.value (readSource (Rad.raw cell) registry)
+                     , Html.Events.onInput inputHandler
+                     ]
+                        ++ triggerAttrs
+                    )
                     []
                 ]
         )
