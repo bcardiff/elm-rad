@@ -1,6 +1,7 @@
 module Rad.View exposing
     ( Attribute, HtmlView
-    , bind, onClick
+    , CommitTrigger(..)
+    , bind, bindDebounced, bindDebouncedWith, onClick
     , button, col, input, text, watch
     , htmlEngine
     )
@@ -8,7 +9,8 @@ module Rad.View exposing
 {-| The HTML view engine and its primitives.
 
 @docs Attribute, HtmlView
-@docs bind, onClick
+@docs CommitTrigger
+@docs bind, bindDebounced, bindDebouncedWith, onClick
 @docs button, col, input, text, watch
 @docs htmlEngine
 
@@ -17,16 +19,28 @@ module Rad.View exposing
 import Html
 import Html.Attributes
 import Html.Events
-import Rad exposing (Action, Cell, Source, readSource, set, toSource)
-import Rad.Engine exposing (Msg, ViewEngine, fromAction)
+import Json.Decode as Decode
+import Rad exposing (Action, Cell, DebouncedCell, Source, commit, readSource, set, toSource)
+import Rad.Engine exposing (Msg, ViewEngine, fromAction, fromDebouncedInput)
+import Rad.Internal.Debounced as IDebounced
 import Rad.Internal.Registry exposing (Registry)
 
 
+{-| A commit trigger for debounced bindings.
+-}
+type CommitTrigger
+    = OnEnter
+    | OnBlur
+    | OnTimeout
+
+
 {-| An attribute applied to an HTML primitive. Encodes reactive intent (bind,
-onClick) that `htmlEngine` wires into real `Html.Attribute`s at render time.
+bindDebounced, onClick) that `htmlEngine` wires into real `Html.Attribute`s
+at render time.
 -}
 type Attribute model
     = BindString (Cell String)
+    | BindDebouncedString (DebouncedCell String) (List CommitTrigger)
     | OnClick (Action model)
 
 
@@ -37,8 +51,7 @@ onClick =
     OnClick
 
 
-{-| The HTML view value produced by the primitives below. Internally a thunk
-over the registry so each primitive can resolve reactive reads at render time.
+{-| The HTML view value.
 -}
 type HtmlView model
     = HtmlView (Registry -> Html.Html (Msg model))
@@ -51,6 +64,23 @@ bind =
     BindString
 
 
+{-| Bind an input to a `DebouncedCell String` with all commit triggers
+enabled (`OnEnter`, `OnBlur`, `OnTimeout`) — the common debounce case.
+-}
+bindDebounced : DebouncedCell String -> Attribute model
+bindDebounced cell =
+    BindDebouncedString cell [ OnEnter, OnBlur, OnTimeout ]
+
+
+{-| Bind an input to a `DebouncedCell String` with a custom set of commit
+triggers. The empty list is a valid escape hatch: no view trigger commits;
+the only paths to settled are explicit `commit` / `revert` actions.
+-}
+bindDebouncedWith : List CommitTrigger -> DebouncedCell String -> Attribute model
+bindDebouncedWith triggers cell =
+    BindDebouncedString cell triggers
+
+
 {-| A vertical stack.
 -}
 col : List (Attribute model) -> List (HtmlView model) -> HtmlView model
@@ -61,36 +91,46 @@ col _ children =
         )
 
 
-{-| An HTML `<input>`. When a `bind` attribute is present, the input's value
-is read from the registry and `onInput` dispatches a `set` action.
+{-| An HTML `<input>`.
 -}
 input : List (Attribute model) -> List (HtmlView model) -> HtmlView model
 input attrs _ =
     HtmlView
         (\registry ->
             let
-                ( bindCell, evtAttrs ) =
+                ( valueAttr, evtAttrs ) =
                     List.foldl
-                        (\a ( mc, evts ) ->
+                        (\a ( vs, evts ) ->
                             case a of
                                 BindString cell ->
-                                    ( Just cell
+                                    ( Html.Attributes.value (readSource (toSource cell) registry) :: vs
                                     , Html.Events.onInput (\v -> fromAction (set cell v)) :: evts
                                     )
 
+                                BindDebouncedString cell triggers ->
+                                    let
+                                        inputHandler =
+                                            if List.member OnTimeout triggers then
+                                                \v -> fromDebouncedInput cell v
+
+                                            else
+                                                \v -> fromAction (IDebounced.rawSetAction cell v)
+
+                                        triggerEvents =
+                                            debouncedTriggerEvents triggers cell
+                                    in
+                                    ( Html.Attributes.value
+                                        (readSource (Rad.raw cell) registry)
+                                        :: vs
+                                    , Html.Events.onInput inputHandler
+                                        :: (triggerEvents ++ evts)
+                                    )
+
                                 OnClick _ ->
-                                    ( mc, evts )
+                                    ( vs, evts )
                         )
-                        ( Nothing, [] )
+                        ( [], [] )
                         attrs
-
-                valueAttr =
-                    case bindCell of
-                        Just cell ->
-                            [ Html.Attributes.value (readSource (toSource cell) registry) ]
-
-                        Nothing ->
-                            []
             in
             Html.input (valueAttr ++ evtAttrs) []
         )
@@ -117,7 +157,7 @@ button attrs children =
                                 OnClick action ->
                                     [ Html.Events.onClick (fromAction action) ]
 
-                                BindString _ ->
+                                _ ->
                                     []
                         )
                         attrs
@@ -127,8 +167,7 @@ button attrs children =
         )
 
 
-{-| Subscribe a view region to a source. Re-renders when the source's value
-changes (achieved via whole-tree re-render on any registry change in Layer 0+1).
+{-| Subscribe a view region to a source.
 -}
 watch : Source a -> (a -> HtmlView model) -> HtmlView model
 watch source f =
@@ -147,3 +186,43 @@ watch source f =
 htmlEngine : ViewEngine (HtmlView model) model
 htmlEngine =
     { toHtml = \registry (HtmlView f) -> f registry }
+
+
+
+-- INTERNALS
+
+
+debouncedTriggerEvents :
+    List CommitTrigger
+    -> DebouncedCell String
+    -> List (Html.Attribute (Msg model))
+debouncedTriggerEvents triggers cell =
+    let
+        commitMsg =
+            fromAction (commit cell)
+    in
+    List.filterMap
+        (\t ->
+            case t of
+                OnEnter ->
+                    Just
+                        (Html.Events.on "keydown"
+                            (Decode.field "key" Decode.string
+                                |> Decode.andThen
+                                    (\k ->
+                                        if k == "Enter" then
+                                            Decode.succeed commitMsg
+
+                                        else
+                                            Decode.fail "non-Enter key"
+                                    )
+                            )
+                        )
+
+                OnBlur ->
+                    Just (Html.Events.onBlur commitMsg)
+
+                OnTimeout ->
+                    Nothing
+        )
+        triggers
