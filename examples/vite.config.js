@@ -25,6 +25,7 @@ export default defineConfig({
         "custom-triggers": resolve(__dirname, "custom-triggers.html"),
         "required-name": resolve(__dirname, "required-name.html"),
         "email-format": resolve(__dirname, "email-format.html"),
+        "username-available": resolve(__dirname, "username-available.html"),
       },
     },
   },
