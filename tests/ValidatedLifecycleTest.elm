@@ -15,6 +15,7 @@ import Rad
         , validationCodec
         , withValidated
         )
+import Rad.Internal.Reaction as IReaction
 import Rad.Internal.Registry as Registry
 import Rad.Internal.Validated as IValidated
 import Test exposing (..)
@@ -102,4 +103,133 @@ suite =
                     { seq = readSeq r.activationSeqId registry2
                     , state = readValidation r.validationId registry2
                     }
+        , test "validationReactions returns exactly one Reaction" <|
+            \_ ->
+                let
+                    ( model, _ ) =
+                        Rad.runBuilder init
+                in
+                Expect.equal 1 (List.length (Rad.validationReactions model.name))
+        , test "readTrigger is stable when input and seq don't change" <|
+            \_ ->
+                let
+                    ( model, registry ) =
+                        Rad.runBuilder init
+
+                    reaction =
+                        Rad.validationReactions model.name |> List.head
+                in
+                case reaction of
+                    Just (IReaction.Reaction r) ->
+                        Expect.equal
+                            (Encode.encode 0 (r.readTrigger registry))
+                            (Encode.encode 0 (r.readTrigger registry))
+
+                    Nothing ->
+                        Expect.fail "no reaction"
+        , test "readTrigger changes when input changes" <|
+            \_ ->
+                let
+                    ( model, registry0 ) =
+                        Rad.runBuilder init
+
+                    reaction =
+                        Rad.validationReactions model.name |> List.head
+
+                    registry1 =
+                        Rad.applyAction
+                            (Rad.set (Rad.input model.name) "world")
+                            registry0
+                in
+                case reaction of
+                    Just (IReaction.Reaction r) ->
+                        Expect.notEqual
+                            (Encode.encode 0 (r.readTrigger registry0))
+                            (Encode.encode 0 (r.readTrigger registry1))
+
+                    Nothing ->
+                        Expect.fail "no reaction"
+        , test "readTrigger changes when activationSeq changes" <|
+            \_ ->
+                let
+                    ( model, registry0 ) =
+                        Rad.runBuilder init
+
+                    reaction =
+                        Rad.validationReactions model.name |> List.head
+
+                    registry1 =
+                        Rad.applyAction (Rad.validate model.name) registry0
+                in
+                case reaction of
+                    Just (IReaction.Reaction r) ->
+                        Expect.notEqual
+                            (Encode.encode 0 (r.readTrigger registry0))
+                            (Encode.encode 0 (r.readTrigger registry1))
+
+                    Nothing ->
+                        Expect.fail "no reaction"
+        , test "buildRequest returns SkipRequest when activationSeq is 0" <|
+            \_ ->
+                let
+                    ( model, registry ) =
+                        Rad.runBuilder init
+
+                    reaction =
+                        Rad.validationReactions model.name |> List.head
+                in
+                case reaction of
+                    Just (IReaction.Reaction r) ->
+                        case r.buildRequest registry of
+                            IReaction.SkipRequest ->
+                                Expect.pass
+
+                            _ ->
+                                Expect.fail "expected SkipRequest when activationSeq is 0"
+
+                    Nothing ->
+                        Expect.fail "no reaction"
+        , test "buildRequest returns DispatchTask after validate" <|
+            \_ ->
+                let
+                    ( model, registry0 ) =
+                        Rad.runBuilder init
+
+                    reaction =
+                        Rad.validationReactions model.name |> List.head
+
+                    registry1 =
+                        Rad.applyAction (Rad.validate model.name) registry0
+                in
+                case reaction of
+                    Just (IReaction.Reaction r) ->
+                        case r.buildRequest registry1 of
+                            IReaction.DispatchTask _ ->
+                                Expect.pass
+
+                            _ ->
+                                Expect.fail "expected DispatchTask after validate"
+
+                    Nothing ->
+                        Expect.fail "no reaction"
+        , test "writeLoading writes encoded Checking to validationId" <|
+            \_ ->
+                let
+                    ( model, registry0 ) =
+                        Rad.runBuilder init
+
+                    reaction =
+                        Rad.validationReactions model.name |> List.head
+                in
+                case reaction of
+                    Just (IReaction.Reaction r) ->
+                        let
+                            registry1 =
+                                r.writeLoading registry0
+                        in
+                        Expect.equal (Just Checking)
+                            (readValidation (IValidated.ref model.name).validationId registry1)
+
+                    Nothing ->
+                        Expect.fail "no reaction"
         ]
