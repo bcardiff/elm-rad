@@ -682,6 +682,10 @@ run engine app =
 
                             Nothing ->
                                 ( ( m, registry, state ), Cmd.none )
+
+                    _ ->
+                        -- DebouncedInput and DebouncedTimerFire are handled in Task 3.3.
+                        ( ( m, registry, state ), Cmd.none )
         , subscriptions = \_ -> Sub.none
         , view =
             \( m, registry, _ ) ->
