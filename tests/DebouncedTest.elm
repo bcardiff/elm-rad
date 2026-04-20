@@ -61,4 +61,18 @@ suite =
                 Expect.within (Expect.Absolute 0.001)
                     800
                     (IDebounced.ref model.text |> .delayMs)
+        , test "raw reads the raw value" <|
+            \_ ->
+                let
+                    ( model, registry ) =
+                        Rad.runBuilder init
+                in
+                Expect.equal "hello" (Rad.readSource (Rad.raw model.text) registry)
+        , test "settled reads the settled value" <|
+            \_ ->
+                let
+                    ( model, registry ) =
+                        Rad.runBuilder init
+                in
+                Expect.equal "hello" (Rad.readSource (Rad.settled model.text) registry)
         ]

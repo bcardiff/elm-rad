@@ -1,6 +1,7 @@
 module Rad exposing
     ( Cell
     , DebouncedCell, withDebounced
+    , raw, settled
     , CellBuilder, build, with, runBuilder
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -16,6 +17,7 @@ module Rad exposing
 
 @docs Cell
 @docs DebouncedCell, withDebounced
+@docs raw, settled
 @docs CellBuilder, build, with, runBuilder
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -262,6 +264,42 @@ withDebounced _ delayMs initial codec (CellBuilder b) =
                 :: ( rawId, encodedInitial )
                 :: b.metas
         , ctor = b.ctor cell
+        }
+
+
+{-| A `Source` for the raw value of a debounced cell — updates on every
+`fromDebouncedInput` (or keystroke via a view binding) and via `revert`.
+-}
+raw : DebouncedCell a -> Source a
+raw (IDebounced.DebouncedCell d) =
+    IS.Source
+        { read =
+            \registry ->
+                case Registry.get d.rawId registry of
+                    Just v ->
+                        Result.withDefault d.initial (Decode.decodeValue d.codec.decode v)
+
+                    Nothing ->
+                        d.initial
+        , codec = d.codec
+        }
+
+
+{-| A `Source` for the settled value of a debounced cell — updates on
+`commit`, `revert`, or after the debounce timer fires.
+-}
+settled : DebouncedCell a -> Source a
+settled (IDebounced.DebouncedCell d) =
+    IS.Source
+        { read =
+            \registry ->
+                case Registry.get d.settledId registry of
+                    Just v ->
+                        Result.withDefault d.initial (Decode.decodeValue d.codec.decode v)
+
+                    Nothing ->
+                        d.initial
+        , codec = d.codec
         }
 
 
