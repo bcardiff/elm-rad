@@ -2,7 +2,6 @@ module Rad.Internal.Validated exposing
     ( Core
     , Ref
     , ValidatedCell(..)
-    , Validation(..)
     , Validator(..)
     , core
     , ref
@@ -11,17 +10,15 @@ module Rad.Internal.Validated exposing
 {-| Internal shape of `ValidatedCell err a`. The constructor is exposed so
 that `Rad` (for `input`, `validation`, `validate`, etc.) can pattern-match.
 User code only sees `Rad.ValidatedCell err a`, opaquely.
+
+`Validation err a` itself is defined in `Rad` (so `Rad` can expose its
+constructors); `Core` stores `errCodec` so downstream code can rebuild
+`validationCodec` on demand.
+
 -}
 
 import Json.Decode as Decode
 import Rad.Internal.Request as IRequest
-
-
-type Validation err a
-    = Dormant
-    | Checking
-    | Valid a
-    | Invalid (List err)
 
 
 type Validator err a
@@ -39,10 +36,7 @@ type alias Core err a =
     , validationId : Int
     , activationSeqId : Int
     , codec : { encode : a -> Decode.Value, decode : Decode.Decoder a }
-    , validationCodec :
-        { encode : Validation err a -> Decode.Value
-        , decode : Decode.Decoder (Validation err a)
-        }
+    , errCodec : { encode : err -> Decode.Value, decode : Decode.Decoder err }
     , validator : Validator err a
     , initial : a
     }

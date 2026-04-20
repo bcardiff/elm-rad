@@ -2,6 +2,7 @@ module Rad exposing
     ( Cell
     , DebouncedCell, withDebounced
     , raw, settled, synced, commit, revert
+    , ValidatedCell, withValidated, Validation(..), validationCodec
     , CellBuilder, build, with, runBuilder
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -18,6 +19,7 @@ module Rad exposing
 @docs Cell
 @docs DebouncedCell, withDebounced
 @docs raw, settled, synced, commit, revert
+@docs ValidatedCell, withValidated, Validation, validationCodec
 @docs CellBuilder, build, with, runBuilder
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -43,6 +45,7 @@ import Rad.Internal.Reaction as IReaction
 import Rad.Internal.Registry as Registry exposing (Registry)
 import Rad.Internal.Request as IRequest
 import Rad.Internal.Source as IS
+import Rad.Internal.Validated as IValidated
 import Rad.Read
 import Task
 
@@ -359,6 +362,133 @@ revert (IDebounced.DebouncedCell d) =
                 Nothing ->
                     registry
         )
+
+
+{-| A cell with a reactive validation lifecycle. Holds a writable input value
+and a derived `Validation err a` state. Constructed via `withValidated`.
+Opaque.
+-}
+type alias ValidatedCell err a =
+    IValidated.ValidatedCell err a
+
+
+{-| The validation lifecycle state.
+-}
+type Validation err a
+    = Dormant
+    | Checking
+    | Valid a
+    | Invalid (List err)
+
+
+{-| A codec for `Validation err a` given codecs for the error and value types.
+
+The wire format is a tagged object: `{"tag":"Dormant"}`, `{"tag":"Checking"}`,
+`{"tag":"Valid","value":<valueEncoded>}`,
+`{"tag":"Invalid","errors":[<errEncoded>, ...]}`.
+
+-}
+validationCodec : Codec err -> Codec a -> Codec (Validation err a)
+validationCodec errCodec valueCodec =
+    let
+        encode v =
+            case v of
+                Dormant ->
+                    Encode.object [ ( "tag", Encode.string "Dormant" ) ]
+
+                Checking ->
+                    Encode.object [ ( "tag", Encode.string "Checking" ) ]
+
+                Valid a ->
+                    Encode.object
+                        [ ( "tag", Encode.string "Valid" )
+                        , ( "value", valueCodec.encode a )
+                        ]
+
+                Invalid errs ->
+                    Encode.object
+                        [ ( "tag", Encode.string "Invalid" )
+                        , ( "errors", Encode.list errCodec.encode errs )
+                        ]
+
+        decode =
+            Decode.field "tag" Decode.string
+                |> Decode.andThen
+                    (\tag ->
+                        case tag of
+                            "Dormant" ->
+                                Decode.succeed Dormant
+
+                            "Checking" ->
+                                Decode.succeed Checking
+
+                            "Valid" ->
+                                Decode.map Valid
+                                    (Decode.field "value" valueCodec.decode)
+
+                            "Invalid" ->
+                                Decode.map Invalid
+                                    (Decode.field "errors" (Decode.list errCodec.decode))
+
+                            other ->
+                                Decode.fail ("unknown Validation tag: " ++ other)
+                    )
+    in
+    { encode = encode, decode = decode }
+
+
+{-| Add a validated cell to the builder. Allocates three Registry slots
+(input, validation state, activation sequence counter) seeded from `initial`
+and Dormant.
+-}
+withValidated :
+    String
+    -> a
+    -> Codec a
+    -> Codec err
+    -> IValidated.Validator err a
+    -> CellBuilder (ValidatedCell err a -> rest)
+    -> CellBuilder rest
+withValidated _ initial codec errCodec validator (CellBuilder b) =
+    let
+        inputId =
+            b.nextId
+
+        validationId =
+            b.nextId + 1
+
+        activationSeqId =
+            b.nextId + 2
+
+        valCodec =
+            validationCodec errCodec codec
+
+        cell =
+            IValidated.ValidatedCell
+                { inputId = inputId
+                , validationId = validationId
+                , activationSeqId = activationSeqId
+                , codec = codec
+                , errCodec = errCodec
+                , validator = validator
+                , initial = initial
+                }
+
+        encodedInitial =
+            codec.encode initial
+
+        encodedDormant =
+            valCodec.encode Dormant
+    in
+    CellBuilder
+        { nextId = b.nextId + 3
+        , metas =
+            ( activationSeqId, Encode.int 0 )
+                :: ( validationId, encodedDormant )
+                :: ( inputId, encodedInitial )
+                :: b.metas
+        , ctor = b.ctor cell
+        }
 
 
 {-| Anything readable. Cells, derived values, and later debounced/validated
