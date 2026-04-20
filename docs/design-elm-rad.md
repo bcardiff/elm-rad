@@ -364,6 +364,22 @@ Async validators (e.g., checking username availability) follow the same pattern 
 
 Both the input value and the validation state are persisted. On restore, `Checking` states re-fire the async validator (same as `Loading` cells re-fire their reactions).
 
+### Implementation notes
+
+Recorded here so future contributors don't re-debate them.
+
+1. **Three Registry slots per `ValidatedCell`.** `withValidated` allocates input, validation state, and a per-cell activation sequence counter. The input slot holds the encoded `a`; the validation slot holds encoded `Validation err a`; the activation seq slot holds an `Int` (0 when Dormant, >0 when active).
+
+2. **Validator constructors are opaque.** Users build validators via `sync`, `async`, `compose`. The internal `Validator` constructors live in `Rad.Internal.Validated` and are not re-exported. This keeps the public surface small and lets later layers add validator variants (e.g., `deferred`, `whenDirty`) without breaking call sites.
+
+3. **Reactions are reused; no new Msg variants.** Each `ValidatedCell` produces one `Reaction` (built by hand, not via `Rad.on`, because `on` writes to `Cell (Remote err r)` and we need to write to `Cell (Validation err a)`). The reaction's trigger is `[input value, activation seq]` encoded as a JSON list. Layer 2's reaction-seq handles latest-wins.
+
+4. **Sync validators dispatch through the Cmd loop.** A pure-sync validator briefly shows `Checking` (one render frame) before landing on `Valid` / `Invalid`. Uniform dispatch through the reaction was chosen over a sync fast-path because the flash is imperceptible in practice; fast-path deferred if measured as a problem.
+
+5. **Activation via an `Int` counter, not a `Bool`.** `validate` bumps the counter (0 → 1 → 2 → ...), which changes the reaction's trigger. Repeated `validate` clicks against unchanged input still re-run the validator — supporting "re-validate to pick up server-side state" UX. A Bool would miss the second click.
+
+6. **`validationReactions` is composed manually by the user.** A user's `reactions` function concatenates `validationReactions vcell` with their own reactions. Auto-wiring was rejected to keep Layer 2's runtime surface unchanged and to keep control flow grep-able. Layer 5 Forms will collect field reactions and pre-compose.
+
 ---
 
 ## Forms
