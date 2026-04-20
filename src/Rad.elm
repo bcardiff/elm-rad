@@ -2,7 +2,7 @@ module Rad exposing
     ( Cell
     , DebouncedCell, withDebounced
     , raw, settled, synced, commit, revert
-    , ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, Validation(..), validationCodec
+    , ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation(..), validationCodec
     , CellBuilder, build, with, runBuilder
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -19,7 +19,7 @@ module Rad exposing
 @docs Cell
 @docs DebouncedCell, withDebounced
 @docs raw, settled, synced, commit, revert
-@docs ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, Validation, validationCodec
+@docs ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation, validationCodec
 @docs CellBuilder, build, with, runBuilder
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -558,6 +558,50 @@ validation vcell =
                         Dormant
         , codec = valCodec
         }
+
+
+{-| Activate validation. Bumps the activation sequence counter; the
+validation reaction re-fires with the current input, transitioning from
+`Dormant` through `Checking` to `Valid` / `Invalid`. Repeated calls bump
+the counter again, forcing re-validation even if the input is unchanged.
+-}
+validate : ValidatedCell err a -> Action model
+validate vcell =
+    let
+        c =
+            IValidated.core vcell
+    in
+    IA.Action
+        (\registry ->
+            let
+                currentSeq =
+                    Registry.get c.activationSeqId registry
+                        |> Maybe.andThen (Decode.decodeValue Decode.int >> Result.toMaybe)
+                        |> Maybe.withDefault 0
+            in
+            Registry.insert c.activationSeqId (Encode.int (currentSeq + 1)) registry
+        )
+
+
+{-| Reset validation to `Dormant`. Writes `Dormant` to the validation state
+and resets the activation sequence to 0. Any in-flight async validator's
+result is discarded by the validation reaction (it sees `SkipRequest`).
+-}
+resetValidation : ValidatedCell err a -> Action model
+resetValidation vcell =
+    let
+        c =
+            IValidated.core vcell
+
+        valCodec =
+            validationCodec c.errCodec c.codec
+    in
+    IA.Action
+        (\registry ->
+            registry
+                |> Registry.insert c.validationId (valCodec.encode Dormant)
+                |> Registry.insert c.activationSeqId (Encode.int 0)
+        )
 
 
 {-| Anything readable. Cells, derived values, and later debounced/validated
