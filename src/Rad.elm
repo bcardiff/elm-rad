@@ -2,7 +2,7 @@ module Rad exposing
     ( Cell
     , DebouncedCell, withDebounced
     , raw, settled, synced, commit, revert
-    , ValidatedCell, withValidated, Validation(..), validationCodec
+    , ValidatedCell, withValidated, Validator, sync, async, compose, Validation(..), validationCodec
     , CellBuilder, build, with, runBuilder
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -19,7 +19,7 @@ module Rad exposing
 @docs Cell
 @docs DebouncedCell, withDebounced
 @docs raw, settled, synced, commit, revert
-@docs ValidatedCell, withValidated, Validation, validationCodec
+@docs ValidatedCell, withValidated, Validator, sync, async, compose, Validation, validationCodec
 @docs CellBuilder, build, with, runBuilder
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -489,6 +489,38 @@ withValidated _ initial codec errCodec validator (CellBuilder b) =
                 :: b.metas
         , ctor = b.ctor cell
         }
+
+
+{-| Opaque validator. Build via `sync`, `async`, or `compose`.
+-}
+type alias Validator err a =
+    IValidated.Validator err a
+
+
+{-| A synchronous validator. Returns `Ok a` if valid; `Err errs` with a list
+of errors otherwise.
+-}
+sync : (a -> Result (List err) a) -> Validator err a
+sync =
+    IValidated.Sync
+
+
+{-| An asynchronous validator. Builds a `Request` whose success value is the
+valid `a`; failure is a list of errors. HTTP-backed validators typically
+build via `Rad.Http.httpGet` + `mapRequestError`.
+-}
+async : (a -> Request (List err) a) -> Validator err a
+async =
+    IValidated.Async
+
+
+{-| A composed validator. Runs the validators left-to-right; if any one
+returns `Invalid`, subsequent validators are skipped. `Valid` propagates the
+(possibly transformed) value to the next validator.
+-}
+compose : List (Validator err a) -> Validator err a
+compose =
+    IValidated.Compose
 
 
 {-| Anything readable. Cells, derived values, and later debounced/validated

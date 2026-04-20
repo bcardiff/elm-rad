@@ -7,8 +7,10 @@ import Rad
     exposing
         ( ValidatedCell
         , Validation(..)
+        , Validator
         , build
         , stringCodec
+        , sync
         , validationCodec
         , withValidated
         )
@@ -21,9 +23,9 @@ type alias Model =
     { name : ValidatedCell String String }
 
 
-nameValidator : IValidated.Validator String String
+nameValidator : Validator String String
 nameValidator =
-    IValidated.Sync Ok
+    sync Ok
 
 
 init : Rad.CellBuilder Model
