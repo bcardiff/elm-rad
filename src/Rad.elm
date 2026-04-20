@@ -9,7 +9,7 @@ module Rad exposing
     , Remote(..), remoteCodec
     , Source, toSource, readSource, derive
     , Action, set, modify, copy, batch, applyAction
-    , Request, noRequest, mapRequestError
+    , Request, noRequest, mapRequestError, andThenRequest
     , AppDef, AppModel, run
     , Reaction, on
     )
@@ -26,7 +26,7 @@ module Rad exposing
 @docs Remote, remoteCodec
 @docs Source, toSource, readSource, derive
 @docs Action, set, modify, copy, batch, applyAction
-@docs Request, noRequest, mapRequestError
+@docs Request, noRequest, mapRequestError, andThenRequest
 @docs AppDef, AppModel, run
 @docs Reaction, on
 
@@ -729,6 +729,46 @@ error (e.g., `Rad.Http.RequestError`) into a domain error type.
 mapRequestError : (e -> f) -> Request e a -> Request f a
 mapRequestError =
     IRequest.mapError
+
+
+{-| Transform a Request's success value via a function that may itself
+short-circuit to the error channel.
+
+Useful for chaining a sync check after an async request. Example: an HTTP
+response whose body indicates whether the action succeeded at the domain
+level:
+
+    Http.httpGet handler url decoder
+        |> mapRequestError (\netErr -> [ NetworkError netErr ])
+        |> andThenRequest
+            (\resp ->
+                if resp.ok then
+                    Ok resp.value
+
+                else
+                    Err [ DomainFailure ]
+            )
+
+-}
+andThenRequest : (a -> Result err b) -> Request err a -> Request err b
+andThenRequest f req =
+    case req of
+        IRequest.NoRequest ->
+            IRequest.NoRequest
+
+        IRequest.DispatchRequest task ->
+            IRequest.DispatchRequest
+                (task
+                    |> Task.andThen
+                        (\a ->
+                            case f a of
+                                Ok b ->
+                                    Task.succeed b
+
+                                Err errs ->
+                                    Task.fail errs
+                        )
+                )
 
 
 {-| A reaction — a rule that says "when this source's value changes, run

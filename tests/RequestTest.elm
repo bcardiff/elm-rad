@@ -50,4 +50,31 @@ suite =
 
                     _ ->
                         Expect.fail "expected both to be DispatchRequest"
+        , test "andThenRequest preserves NoRequest" <|
+            \_ ->
+                let
+                    result =
+                        Rad.andThenRequest (\_ -> Ok "x") Rad.noRequest
+                in
+                case result of
+                    IR.NoRequest ->
+                        Expect.pass
+
+                    _ ->
+                        Expect.fail "expected NoRequest"
+        , test "andThenRequest wraps DispatchRequest" <|
+            \_ ->
+                let
+                    base =
+                        IR.DispatchRequest (Task.succeed 1)
+
+                    result =
+                        Rad.andThenRequest (\n -> Ok (n + 1)) base
+                in
+                case result of
+                    IR.DispatchRequest _ ->
+                        Expect.pass
+
+                    _ ->
+                        Expect.fail "expected DispatchRequest"
         ]
