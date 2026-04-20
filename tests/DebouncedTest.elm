@@ -75,4 +75,11 @@ suite =
                         Rad.runBuilder init
                 in
                 Expect.equal "hello" (Rad.readSource (Rad.settled model.text) registry)
+        , test "synced starts True when raw equals settled" <|
+            \_ ->
+                let
+                    ( model, registry ) =
+                        Rad.runBuilder init
+                in
+                Expect.equal True (Rad.readSource (Rad.synced model.text) registry)
         ]

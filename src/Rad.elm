@@ -1,7 +1,7 @@
 module Rad exposing
     ( Cell
     , DebouncedCell, withDebounced
-    , raw, settled
+    , raw, settled, synced
     , CellBuilder, build, with, runBuilder
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -17,7 +17,7 @@ module Rad exposing
 
 @docs Cell
 @docs DebouncedCell, withDebounced
-@docs raw, settled
+@docs raw, settled, synced
 @docs CellBuilder, build, with, runBuilder
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -301,6 +301,30 @@ settled (IDebounced.DebouncedCell d) =
                         d.initial
         , codec = d.codec
         }
+
+
+{-| A derived `Source Bool` reporting whether a debounced cell's raw and
+settled values are equal. Uses JSON-encoded equality via the cell's codec,
+consistent with Layer 2 trigger-change detection.
+-}
+synced : DebouncedCell a -> Source Bool
+synced cell =
+    let
+        rawSource =
+            raw cell
+
+        settledSource =
+            settled cell
+    in
+    derive boolCodec
+        (Rad.Read.map2
+            (\r s ->
+                Encode.encode 0 ((IS.codec rawSource).encode r)
+                    == Encode.encode 0 ((IS.codec settledSource).encode s)
+            )
+            (Rad.Read.read rawSource)
+            (Rad.Read.read settledSource)
+        )
 
 
 {-| Anything readable. Cells, derived values, and later debounced/validated
