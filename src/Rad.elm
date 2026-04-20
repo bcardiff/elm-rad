@@ -34,6 +34,7 @@ import Browser
 import Dict
 import Json.Decode as Decode
 import Json.Encode as Encode
+import Process
 import Rad.Engine
 import Rad.Internal.Action as IA
 import Rad.Internal.Debounced as IDebounced
@@ -683,9 +684,30 @@ run engine app =
                             Nothing ->
                                 ( ( m, registry, state ), Cmd.none )
 
-                    _ ->
-                        -- DebouncedInput and DebouncedTimerFire are handled in Task 3.3.
-                        ( ( m, registry, state ), Cmd.none )
+                    IMsg.DebouncedInput dRef encodedValue ->
+                        let
+                            ( reg1, newSeq ) =
+                                IDebounced.applyInput dRef encodedValue registry
+
+                            timerCmd =
+                                Process.sleep dRef.delayMs
+                                    |> Task.perform
+                                        (\_ -> IMsg.DebouncedTimerFire dRef newSeq)
+
+                            ( reg2, state2, reactionCmd ) =
+                                fireReactions reg1 state
+                        in
+                        ( ( m, reg2, state2 ), Cmd.batch [ timerCmd, reactionCmd ] )
+
+                    IMsg.DebouncedTimerFire dRef firedSeq ->
+                        let
+                            reg1 =
+                                IDebounced.applyTimerFire dRef firedSeq registry
+
+                            ( reg2, state2, reactionCmd ) =
+                                fireReactions reg1 state
+                        in
+                        ( ( m, reg2, state2 ), reactionCmd )
         , subscriptions = \_ -> Sub.none
         , view =
             \( m, registry, _ ) ->
