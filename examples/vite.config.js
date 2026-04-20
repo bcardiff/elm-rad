@@ -20,6 +20,7 @@ export default defineConfig({
         "github-user": resolve(__dirname, "github-user.html"),
         "post-note": resolve(__dirname, "post-note.html"),
         "derived-search": resolve(__dirname, "derived-search.html"),
+        "debounce-echo": resolve(__dirname, "debounce-echo.html"),
       },
     },
   },
