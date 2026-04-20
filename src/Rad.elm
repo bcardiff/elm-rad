@@ -2,7 +2,7 @@ module Rad exposing
     ( Cell
     , DebouncedCell, withDebounced
     , raw, settled, synced, commit, revert
-    , ValidatedCell, withValidated, Validator, sync, async, compose, Validation(..), validationCodec
+    , ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, Validation(..), validationCodec
     , CellBuilder, build, with, runBuilder
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -19,7 +19,7 @@ module Rad exposing
 @docs Cell
 @docs DebouncedCell, withDebounced
 @docs raw, settled, synced, commit, revert
-@docs ValidatedCell, withValidated, Validator, sync, async, compose, Validation, validationCodec
+@docs ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, Validation, validationCodec
 @docs CellBuilder, build, with, runBuilder
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -521,6 +521,43 @@ returns `Invalid`, subsequent validators are skipped. `Valid` propagates the
 compose : List (Validator err a) -> Validator err a
 compose =
     IValidated.Compose
+
+
+{-| The writable input cell of a validated cell. Use with `set`, `modify`,
+`copy`, or view bindings (`bind (input vcell)`).
+-}
+input : ValidatedCell err a -> Cell a
+input vcell =
+    let
+        c =
+            IValidated.core vcell
+    in
+    Cell { id = c.inputId, key = "", codec = c.codec, initial = c.initial }
+
+
+{-| A `Source` for the validation state of a validated cell.
+-}
+validation : ValidatedCell err a -> Source (Validation err a)
+validation vcell =
+    let
+        c =
+            IValidated.core vcell
+
+        valCodec =
+            validationCodec c.errCodec c.codec
+    in
+    IS.Source
+        { read =
+            \registry ->
+                case Registry.get c.validationId registry of
+                    Just v ->
+                        Result.withDefault Dormant
+                            (Decode.decodeValue valCodec.decode v)
+
+                    Nothing ->
+                        Dormant
+        , codec = valCodec
+        }
 
 
 {-| Anything readable. Cells, derived values, and later debounced/validated

@@ -119,4 +119,23 @@ suite =
                 c.encode (Invalid [ "oops", "again" ])
                     |> Decode.decodeValue c.decode
                     |> Expect.equal (Ok (Invalid [ "oops", "again" ]))
+        , test "input returns a Cell whose id matches inputId" <|
+            \_ ->
+                let
+                    ( model, registry ) =
+                        Rad.runBuilder init
+
+                    inputCell =
+                        Rad.input model.name
+                in
+                Expect.equal "hello"
+                    (Rad.readSource (Rad.toSource inputCell) registry)
+        , test "validation returns a Source reading the validation state" <|
+            \_ ->
+                let
+                    ( model, registry ) =
+                        Rad.runBuilder init
+                in
+                Expect.equal Dormant
+                    (Rad.readSource (Rad.validation model.name) registry)
         ]
