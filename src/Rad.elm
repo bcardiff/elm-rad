@@ -1,7 +1,7 @@
 module Rad exposing
     ( Cell
     , DebouncedCell, withDebounced
-    , raw, settled, synced
+    , raw, settled, synced, commit, revert
     , CellBuilder, build, with, runBuilder
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -17,7 +17,7 @@ module Rad exposing
 
 @docs Cell
 @docs DebouncedCell, withDebounced
-@docs raw, settled, synced
+@docs raw, settled, synced, commit, revert
 @docs CellBuilder, build, with, runBuilder
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -324,6 +324,39 @@ synced cell =
             )
             (Rad.Read.read rawSource)
             (Rad.Read.read settledSource)
+        )
+
+
+{-| Commit a debounced cell's raw value to its settled value (copies raw →
+settled). A pure `Action`; does not touch the timer sequence, so any in-flight
+timer will fire harmlessly (raw and settled already match).
+-}
+commit : DebouncedCell a -> Action model
+commit (IDebounced.DebouncedCell d) =
+    IA.Action
+        (\registry ->
+            case Registry.get d.rawId registry of
+                Just rawValue ->
+                    Registry.insert d.settledId rawValue registry
+
+                Nothing ->
+                    registry
+        )
+
+
+{-| Revert a debounced cell's raw value to its settled value (copies settled
+→ raw). Dual of `commit`. Does not touch the timer sequence.
+-}
+revert : DebouncedCell a -> Action model
+revert (IDebounced.DebouncedCell d) =
+    IA.Action
+        (\registry ->
+            case Registry.get d.settledId registry of
+                Just settledValue ->
+                    Registry.insert d.rawId settledValue registry
+
+                Nothing ->
+                    registry
         )
 
 
