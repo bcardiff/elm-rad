@@ -2,7 +2,7 @@ module Rad exposing
     ( Cell
     , DebouncedCell, withDebounced
     , raw, settled, synced, commit, revert
-    , ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation(..), validationCodec, runSyncOnly
+    , ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation(..), validationCodec, runSyncOnly, validationReactions
     , CellBuilder, build, with, runBuilder
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -19,7 +19,7 @@ module Rad exposing
 @docs Cell
 @docs DebouncedCell, withDebounced
 @docs raw, settled, synced, commit, revert
-@docs ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation, validationCodec, runSyncOnly
+@docs ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation, validationCodec, runSyncOnly, validationReactions
 @docs CellBuilder, build, with, runBuilder
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -1044,3 +1044,74 @@ applyCompose validators value =
                             _ ->
                                 Task.succeed vState
                     )
+
+
+{-| The reaction(s) powering a validated cell's lifecycle. Returns a
+single-element list so users can concatenate multiple validated cells'
+reactions with their own:
+
+    reactions =
+        \model _ ->
+            validationReactions model.name
+                ++ validationReactions model.email
+                ++ [ myOtherReaction ]
+
+-}
+validationReactions : ValidatedCell err a -> List (Reaction model)
+validationReactions vcell =
+    [ validationReaction vcell ]
+
+
+validationReaction : ValidatedCell err a -> Reaction model
+validationReaction vcell =
+    let
+        c =
+            IValidated.core vcell
+
+        valCodec =
+            validationCodec c.errCodec c.codec
+
+        readInput registry =
+            case Registry.get c.inputId registry of
+                Just v ->
+                    Result.withDefault c.initial
+                        (Decode.decodeValue c.codec.decode v)
+
+                Nothing ->
+                    c.initial
+
+        readActivationSeq registry =
+            Registry.get c.activationSeqId registry
+                |> Maybe.andThen (Decode.decodeValue Decode.int >> Result.toMaybe)
+                |> Maybe.withDefault 0
+    in
+    IReaction.Reaction
+        { readTrigger =
+            \registry ->
+                Encode.list identity
+                    [ c.codec.encode (readInput registry)
+                    , Encode.int (readActivationSeq registry)
+                    ]
+        , buildRequest =
+            \registry ->
+                let
+                    activationSeq =
+                        readActivationSeq registry
+                in
+                if activationSeq == 0 then
+                    IReaction.SkipRequest
+
+                else
+                    IReaction.DispatchTask
+                        (applyValidator c.validator (readInput registry)
+                            |> Task.map valCodec.encode
+                        )
+        , writeLoading =
+            \registry ->
+                Registry.insert c.validationId
+                    (valCodec.encode Checking)
+                    registry
+        , writeResult =
+            \encoded registry ->
+                Registry.insert c.validationId encoded registry
+        }
