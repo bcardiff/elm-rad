@@ -12,7 +12,7 @@ module Rad exposing
     , Action, set, modify, copy, batch, applyAction
     , Request, noRequest, mapRequestError, andThenRequest
     , AppDef, AppModel, run
-    , ComponentDef, defineComponent, withInstance
+    , ComponentDef, defineComponent, withInstance, embed, include
     , Reaction, on
     )
 
@@ -31,7 +31,7 @@ module Rad exposing
 @docs Action, set, modify, copy, batch, applyAction
 @docs Request, noRequest, mapRequestError, andThenRequest
 @docs AppDef, AppModel, run
-@docs ComponentDef, defineComponent, withInstance
+@docs ComponentDef, defineComponent, withInstance, embed, include
 @docs Reaction, on
 
 -}
@@ -1289,3 +1289,20 @@ withInstance name (ComponentDef def) (CellBuilder f) =
             , ctor = parent.ctor child.ctor
             }
         )
+
+
+{-| Render a component instance's view. Reads the component's cells via
+`def.view cells (def.computed cells)`.
+-}
+embed : ComponentDef model view cells computed -> cells -> view
+embed (ComponentDef def) cells =
+    def.view cells (def.computed cells)
+
+
+{-| Collect a component instance's reactions. Returns the list produced by
+`def.reactions cells (def.computed cells)`. Concatenate with other reactions
+in the parent's `reactions` function.
+-}
+include : ComponentDef model view cells computed -> cells -> List (Reaction model)
+include (ComponentDef def) cells =
+    def.reactions cells (def.computed cells)
