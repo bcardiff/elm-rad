@@ -1,5 +1,6 @@
 module Rad exposing
     ( Cell
+    , cellKey
     , DebouncedCell, withDebounced
     , raw, settled, synced, commit, revert
     , ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation(..), validationCodec, runSyncOnly, validationReactions
@@ -11,13 +12,14 @@ module Rad exposing
     , Action, set, modify, copy, batch, applyAction
     , Request, noRequest, mapRequestError, andThenRequest
     , AppDef, AppModel, run
-    , ComponentDef, defineComponent
+    , ComponentDef, defineComponent, withInstance
     , Reaction, on
     )
 
 {-| elm-rad — reactive cell DSL.
 
 @docs Cell
+@docs cellKey
 @docs DebouncedCell, withDebounced
 @docs raw, settled, synced, commit, revert
 @docs ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation, validationCodec, runSyncOnly, validationReactions
@@ -29,7 +31,7 @@ module Rad exposing
 @docs Action, set, modify, copy, batch, applyAction
 @docs Request, noRequest, mapRequestError, andThenRequest
 @docs AppDef, AppModel, run
-@docs ComponentDef, defineComponent
+@docs ComponentDef, defineComponent, withInstance
 @docs Reaction, on
 
 -}
@@ -178,6 +180,15 @@ type Cell a
         , codec : Codec a
         , initial : a
         }
+
+
+{-| Inspect a cell's persistence key. The key is the user-supplied string,
+prefixed with any namespace segments introduced by `withInstance`. Useful for
+Layer 7 persistence integration and testing.
+-}
+cellKey : Cell a -> String
+cellKey (Cell c) =
+    c.key
 
 
 {-| An applicative builder for constructing a model made of cells.
@@ -1235,3 +1246,46 @@ defineComponent :
     -> ComponentDef model view cells computed
 defineComponent def =
     ComponentDef def
+
+
+{-| Mount a component instance under the given namespace. Inside the
+parent's `init` pipeline:
+
+    build Model
+        |> withInstance "primary" tagPicker
+        |> withInstance "secondary" tagPicker
+
+Each call extends the persistence-key prefix for the component's cells
+(`"primary.selected"`, `"secondary.selected"`) and advances the parent's ID
+counter past the component's cells.
+
+Works inside another component's `init` too — nested components compose the
+prefix (`"outer.inner.field"`).
+
+-}
+withInstance :
+    String
+    -> ComponentDef model view cells computed
+    -> CellBuilder (cells -> rest)
+    -> CellBuilder rest
+withInstance name (ComponentDef def) (CellBuilder f) =
+    CellBuilder
+        (\state ->
+            let
+                parent =
+                    f state
+
+                childPrefix =
+                    state.prefix ++ name ++ "."
+
+                (CellBuilder g) =
+                    def.init
+
+                child =
+                    g { nextId = parent.nextId, prefix = childPrefix }
+            in
+            { nextId = child.nextId
+            , metas = child.metas ++ parent.metas
+            , ctor = parent.ctor child.ctor
+            }
+        )
