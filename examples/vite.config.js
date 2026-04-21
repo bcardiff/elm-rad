@@ -26,6 +26,7 @@ export default defineConfig({
         "required-name": resolve(__dirname, "required-name.html"),
         "email-format": resolve(__dirname, "email-format.html"),
         "username-available": resolve(__dirname, "username-available.html"),
+        "counter-component": resolve(__dirname, "counter-component.html"),
       },
     },
   },
