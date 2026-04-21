@@ -700,6 +700,24 @@ read (toSource model.category.selected)
 watch (toSource model.tags.selected) (\tag -> text ("Tagged: " ++ tag))
 ```
 
+### Implementation notes
+
+Recorded here so future contributors don't re-debate them.
+
+1. **`CellBuilder` is a lazy recipe.** Internally `CellBuilder ctor = CellBuilder (BuildState -> BuildResult ctor)` where `BuildState = { nextId, prefix }`. Nothing is allocated until a state flows in. This lets a component's `init` — written as a regular `build |> with |> ...` pipeline — be started at an arbitrary `nextId` and namespace prefix.
+
+2. **`ComponentDef model view cells computed` has a `model` type parameter.** Elm requires free type variables inside record fields to be bound by the surrounding type constructor. The `reactions : cells -> computed -> List (Reaction model)` field forces `model` into the type. At use sites, `model` unifies with the outer app's model type.
+
+3. **Cells record embeds directly in the parent model.** No `Instance` wrapper — cells are plain data, debugger-friendly, survive hot reload. Parent accesses via normal record access (`model.category.n`).
+
+4. **Persistence keys namespace at build time, stamped only on `Cell.key`.** `withInstance "primary" componentDef` runs the component's init with an extended prefix; `with "selected"` stamps `"primary.selected"` on the `Cell` record's `.key`. `DebouncedCell` and `ValidatedCell` don't store a `key` today; Layer 7 will decide their persistence format.
+
+5. **`embed` and `include` are dispatch helpers.** They take `ComponentDef` + `cells` and call the def's `view`/`reactions` with `computed` pre-applied. No component-scoped runtime state.
+
+6. **No new `Msg` variants, no runtime changes.** Components dispatch through existing `ApplyAction` + `ReactionResult`. Engines stay unchanged. `AppModel model` tuple shape is unchanged.
+
+7. **Recommended pattern: bind each parameterized `ComponentDef` at module level.** `ComponentDef` is written three times per use (`withInstance`, `embed`, `include`). Binding at module level (`downloadsCounter = counterComponent {label="Downloads", step=1}`) avoids reconstruction at each call site.
+
 ---
 
 ## Persistence
