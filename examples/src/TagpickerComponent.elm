@@ -75,7 +75,7 @@ tagPicker config =
                             Rad.noRequest
 
                         else
-                            Http.httpGet prodHandler ("/api/search?q=" ++ q) matchesDecoder
+                            Http.httpGet prodHandler (config.endpoint ++ "?q=" ++ q) matchesDecoder
                     )
                     c.suggestions
                 ]
