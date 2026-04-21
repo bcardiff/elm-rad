@@ -180,12 +180,21 @@ type Cell a
 
 {-| An applicative builder for constructing a model made of cells.
 -}
-type CellBuilder a
-    = CellBuilder
-        { nextId : Int
-        , metas : List ( Int, Decode.Value )
-        , ctor : a
-        }
+type CellBuilder ctor
+    = CellBuilder (BuildState -> BuildResult ctor)
+
+
+type alias BuildState =
+    { nextId : Int
+    , prefix : String
+    }
+
+
+type alias BuildResult ctor =
+    { nextId : Int
+    , metas : List ( Int, Decode.Value )
+    , ctor : ctor
+    }
 
 
 {-| Start a CellBuilder from a model constructor.
@@ -193,33 +202,47 @@ type CellBuilder a
 build : ctor -> CellBuilder ctor
 build ctor =
     CellBuilder
-        { nextId = 0
-        , metas = []
-        , ctor = ctor
-        }
+        (\state ->
+            { nextId = state.nextId
+            , metas = []
+            , ctor = ctor
+            }
+        )
 
 
 {-| Add one cell to the builder, consuming one argument of the constructor.
 -}
 with : String -> a -> Codec a -> CellBuilder (Cell a -> rest) -> CellBuilder rest
-with key initial codec (CellBuilder b) =
-    let
-        cell =
-            Cell { id = b.nextId, key = key, codec = codec, initial = initial }
-    in
+with key initial codec (CellBuilder f) =
     CellBuilder
-        { nextId = b.nextId + 1
-        , metas = ( b.nextId, codec.encode initial ) :: b.metas
-        , ctor = b.ctor cell
-        }
+        (\state ->
+            let
+                parent =
+                    f state
+
+                id =
+                    parent.nextId
+
+                cell =
+                    Cell { id = id, key = state.prefix ++ key, codec = codec, initial = initial }
+            in
+            { nextId = id + 1
+            , metas = ( id, codec.encode initial ) :: parent.metas
+            , ctor = parent.ctor cell
+            }
+        )
 
 
 {-| Extract the finished model and the initial registry.
 -}
 runBuilder : CellBuilder model -> ( model, Registry )
-runBuilder (CellBuilder b) =
-    ( b.ctor
-    , b.metas
+runBuilder (CellBuilder f) =
+    let
+        result =
+            f { nextId = 0, prefix = "" }
+    in
+    ( result.ctor
+    , result.metas
         |> List.foldl (\( id, v ) -> Registry.insert id v) Registry.empty
     )
 
@@ -236,39 +259,44 @@ type alias DebouncedCell a =
 (raw, settled, and a per-cell timer sequence counter) seeded from `initial`.
 -}
 withDebounced : String -> Float -> a -> Codec a -> CellBuilder (DebouncedCell a -> rest) -> CellBuilder rest
-withDebounced _ delayMs initial codec (CellBuilder b) =
-    let
-        rawId =
-            b.nextId
-
-        settledId =
-            b.nextId + 1
-
-        timerSeqId =
-            b.nextId + 2
-
-        cell =
-            IDebounced.DebouncedCell
-                { rawId = rawId
-                , settledId = settledId
-                , timerSeqId = timerSeqId
-                , codec = codec
-                , delayMs = delayMs
-                , initial = initial
-                }
-
-        encodedInitial =
-            codec.encode initial
-    in
+withDebounced _ delayMs initial codec (CellBuilder f) =
     CellBuilder
-        { nextId = b.nextId + 3
-        , metas =
-            ( timerSeqId, Encode.int 0 )
-                :: ( settledId, encodedInitial )
-                :: ( rawId, encodedInitial )
-                :: b.metas
-        , ctor = b.ctor cell
-        }
+        (\state ->
+            let
+                parent =
+                    f state
+
+                rawId =
+                    parent.nextId
+
+                settledId =
+                    parent.nextId + 1
+
+                timerSeqId =
+                    parent.nextId + 2
+
+                cell =
+                    IDebounced.DebouncedCell
+                        { rawId = rawId
+                        , settledId = settledId
+                        , timerSeqId = timerSeqId
+                        , codec = codec
+                        , delayMs = delayMs
+                        , initial = initial
+                        }
+
+                encodedInitial =
+                    codec.encode initial
+            in
+            { nextId = parent.nextId + 3
+            , metas =
+                ( timerSeqId, Encode.int 0 )
+                    :: ( settledId, encodedInitial )
+                    :: ( rawId, encodedInitial )
+                    :: parent.metas
+            , ctor = parent.ctor cell
+            }
+        )
 
 
 {-| A `Source` for the raw value of a debounced cell — updates on every
@@ -449,46 +477,51 @@ withValidated :
     -> IValidated.Validator err a
     -> CellBuilder (ValidatedCell err a -> rest)
     -> CellBuilder rest
-withValidated _ initial codec errCodec validator (CellBuilder b) =
-    let
-        inputId =
-            b.nextId
-
-        validationId =
-            b.nextId + 1
-
-        activationSeqId =
-            b.nextId + 2
-
-        valCodec =
-            validationCodec errCodec codec
-
-        cell =
-            IValidated.ValidatedCell
-                { inputId = inputId
-                , validationId = validationId
-                , activationSeqId = activationSeqId
-                , codec = codec
-                , errCodec = errCodec
-                , validator = validator
-                , initial = initial
-                }
-
-        encodedInitial =
-            codec.encode initial
-
-        encodedDormant =
-            valCodec.encode Dormant
-    in
+withValidated _ initial codec errCodec validator (CellBuilder f) =
     CellBuilder
-        { nextId = b.nextId + 3
-        , metas =
-            ( activationSeqId, Encode.int 0 )
-                :: ( validationId, encodedDormant )
-                :: ( inputId, encodedInitial )
-                :: b.metas
-        , ctor = b.ctor cell
-        }
+        (\state ->
+            let
+                parent =
+                    f state
+
+                inputId =
+                    parent.nextId
+
+                validationId =
+                    parent.nextId + 1
+
+                activationSeqId =
+                    parent.nextId + 2
+
+                valCodec =
+                    validationCodec errCodec codec
+
+                cell =
+                    IValidated.ValidatedCell
+                        { inputId = inputId
+                        , validationId = validationId
+                        , activationSeqId = activationSeqId
+                        , codec = codec
+                        , errCodec = errCodec
+                        , validator = validator
+                        , initial = initial
+                        }
+
+                encodedInitial =
+                    codec.encode initial
+
+                encodedDormant =
+                    valCodec.encode Dormant
+            in
+            { nextId = parent.nextId + 3
+            , metas =
+                ( activationSeqId, Encode.int 0 )
+                    :: ( validationId, encodedDormant )
+                    :: ( inputId, encodedInitial )
+                    :: parent.metas
+            , ctor = parent.ctor cell
+            }
+        )
 
 
 {-| Opaque validator. Build via `sync`, `async`, or `compose`.
