@@ -6,12 +6,12 @@ The runtime interprets your graph into a standard Elm `Program`. Cells hold stat
 
 > **Status:** early. Layers 0–4 and 6 of the [design doc](docs/design-elm-rad.md) are shipped (cells, sources, actions, reactions, HTTP, debouncing, validation, components). Layer 5 (Forms) and Layer 7 (persistence) are next.
 
-## A first taste — `Greeting`
+## A first taste — `L01E02_Greeting`
 
 An input bound to a cell; a watch that re-renders whenever the cell changes. No `Msg`, no `update`.
 
 ```elm
-module Greeting exposing (main)
+module L01E02_Greeting exposing (main)
 
 import Rad exposing (AppDef, AppModel, Cell, build, run, stringCodec, toSource, with)
 import Rad.Engine exposing (Msg)
@@ -41,12 +41,12 @@ main =
     run simpleViewEngine app
 ```
 
-## Async with debounce — `SearchDebounced`
+## Async with debounce — `L03E02_SearchDebounced`
 
 A `DebouncedCell` exposes two sources: `raw` (every keystroke) and `settled` (after the debounce fires). A reaction watches `settled`, issues an HTTP request, and writes the `Remote` result into another cell. Latest-wins is enforced by the runtime.
 
 ```elm
-module SearchDebounced exposing (main)
+module L03E02_SearchDebounced exposing (main)
 
 import Json.Decode as Decode
 import Rad
