@@ -27,6 +27,7 @@ export default defineConfig({
         "email-format": resolve(__dirname, "email-format.html"),
         "username-available": resolve(__dirname, "username-available.html"),
         "counter-component": resolve(__dirname, "counter-component.html"),
+        "tagpicker-component": resolve(__dirname, "tagpicker-component.html"),
       },
     },
   },
