@@ -11,6 +11,7 @@ module Rad exposing
     , Action, set, modify, copy, batch, applyAction
     , Request, noRequest, mapRequestError, andThenRequest
     , AppDef, AppModel, run
+    , ComponentDef, defineComponent
     , Reaction, on
     )
 
@@ -28,6 +29,7 @@ module Rad exposing
 @docs Action, set, modify, copy, batch, applyAction
 @docs Request, noRequest, mapRequestError, andThenRequest
 @docs AppDef, AppModel, run
+@docs ComponentDef, defineComponent
 @docs Reaction, on
 
 -}
@@ -1188,3 +1190,48 @@ validationReaction vcell =
             \encoded registry ->
                 Registry.insert c.validationId encoded registry
         }
+
+
+{-| A reusable bundle of cells, computed values, a view, and reactions. Build
+via `defineComponent`, mount via `withInstance`, render via `embed`, and
+compose reactions via `include`. Opaque.
+
+The `model` type parameter carries through to the `Reaction model` values the
+component produces. At use sites, `model` unifies with the outer app's model
+type.
+
+-}
+type ComponentDef model view cells computed
+    = ComponentDef
+        { init : CellBuilder cells
+        , computed : cells -> computed
+        , view : cells -> computed -> view
+        , reactions : cells -> computed -> List (Reaction model)
+        }
+
+
+{-| Build a `ComponentDef` from its parts.
+
+    tagPicker : { endpoint : String } -> ComponentDef model (SimpleView model) TagPickerCells {}
+    tagPicker config =
+        defineComponent
+            { init = build TagPickerCells |> with "query" "" stringCodec |> ...
+            , computed = \_ -> {}
+            , view = \c _ -> ...
+            , reactions = \c _ -> [ ... ]
+            }
+
+Recommended pattern: bind parameterized `ComponentDef` values at module level
+and reference them by name to avoid reconstructing at every use site
+(`withInstance`, `embed`, `include`).
+
+-}
+defineComponent :
+    { init : CellBuilder cells
+    , computed : cells -> computed
+    , view : cells -> computed -> view
+    , reactions : cells -> computed -> List (Reaction model)
+    }
+    -> ComponentDef model view cells computed
+defineComponent def =
+    ComponentDef def
