@@ -1,8 +1,11 @@
 module Rad.Internal.Reaction exposing
-    ( InternalRequest(..)
+    ( Guts
+    , InternalRequest(..)
     , Reaction(..)
     , ReactionState
     , emptyState
+    , fromGuts
+    , guts
     )
 
 {-| Internal shape of `Reaction model`. The constructor is exposed to `Rad`
@@ -55,3 +58,25 @@ type alias ReactionState =
 emptyState : ReactionState
 emptyState =
     { triggers = Dict.empty, seqs = Dict.empty }
+
+
+{-| The fields of a `Reaction` as a separate, non-parameterized record.
+Used by `Rad.Form` to store partially-built reactions in `Member` without
+threading a `model` type variable through Form/Member.
+-}
+type alias Guts =
+    { readTrigger : Registry -> Encode.Value
+    , buildRequest : Registry -> InternalRequest
+    , writeLoading : Registry -> Registry
+    , writeResult : Encode.Value -> Registry -> Registry
+    }
+
+
+guts : Reaction model -> Guts
+guts (Reaction r) =
+    r
+
+
+fromGuts : Guts -> Reaction model
+fromGuts g =
+    Reaction g

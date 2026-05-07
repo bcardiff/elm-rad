@@ -4,6 +4,7 @@ module Rad exposing
     , DebouncedCell, withDebounced
     , raw, settled, synced, commit, revert
     , ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation(..), validationCodec, runSyncOnly, validationReactions
+    , internalValidationReactionGuts
     , CellBuilder, build, with, runBuilder
     , Codec
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -23,6 +24,7 @@ module Rad exposing
 @docs DebouncedCell, withDebounced
 @docs raw, settled, synced, commit, revert
 @docs ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation, validationCodec, runSyncOnly, validationReactions
+@docs internalValidationReactionGuts
 @docs CellBuilder, build, with, runBuilder
 @docs Codec
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
@@ -1168,8 +1170,11 @@ validationReactions vcell =
     [ validationReaction vcell ]
 
 
-validationReaction : ValidatedCell err a -> Reaction model
-validationReaction vcell =
+{-| Internal: produces the raw fields of a validated cell's reaction. Used by
+`Rad.Form` to compose `Form.reactions`. Not part of the supported public API.
+-}
+internalValidationReactionGuts : ValidatedCell err a -> IReaction.Guts
+internalValidationReactionGuts vcell =
     let
         c =
             IValidated.core vcell
@@ -1191,36 +1196,40 @@ validationReaction vcell =
                 |> Maybe.andThen (Decode.decodeValue Decode.int >> Result.toMaybe)
                 |> Maybe.withDefault 0
     in
-    IReaction.Reaction
-        { readTrigger =
-            \registry ->
-                Encode.list identity
-                    [ c.codec.encode (readInput registry)
-                    , Encode.int (readActivationSeq registry)
-                    ]
-        , buildRequest =
-            \registry ->
-                let
-                    activationSeq =
-                        readActivationSeq registry
-                in
-                if activationSeq == 0 then
-                    IReaction.SkipRequest
+    { readTrigger =
+        \registry ->
+            Encode.list identity
+                [ c.codec.encode (readInput registry)
+                , Encode.int (readActivationSeq registry)
+                ]
+    , buildRequest =
+        \registry ->
+            let
+                activationSeq =
+                    readActivationSeq registry
+            in
+            if activationSeq == 0 then
+                IReaction.SkipRequest
 
-                else
-                    IReaction.DispatchTask
-                        (applyValidator c.validator (readInput registry)
-                            |> Task.map valCodec.encode
-                        )
-        , writeLoading =
-            \registry ->
-                Registry.insert c.validationId
-                    (valCodec.encode Checking)
-                    registry
-        , writeResult =
-            \encoded registry ->
-                Registry.insert c.validationId encoded registry
-        }
+            else
+                IReaction.DispatchTask
+                    (applyValidator c.validator (readInput registry)
+                        |> Task.map valCodec.encode
+                    )
+    , writeLoading =
+        \registry ->
+            Registry.insert c.validationId
+                (valCodec.encode Checking)
+                registry
+    , writeResult =
+        \encoded registry ->
+            Registry.insert c.validationId encoded registry
+    }
+
+
+validationReaction : ValidatedCell err a -> Reaction model
+validationReaction vcell =
+    IReaction.fromGuts (internalValidationReactionGuts vcell)
 
 
 {-| A reusable bundle of cells, computed values, a view, and reactions. Build
