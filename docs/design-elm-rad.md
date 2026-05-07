@@ -440,6 +440,28 @@ valid3 : ValidatedCell a -> ValidatedCell b -> ValidatedCell c -> ValidatedGroup
 - **Conditional field visibility**: field B appears only if field A has a certain value; form preserves B's value if A toggles back
 - **Undo at form level**: form can snapshot state on each commit
 
+### Implementation notes
+
+Recorded here so future contributors don't re-debate them.
+
+1. **Layer 5 lives in `Rad.Form`, not `Rad`.** The Form API is orthogonal and exploratory; alternative Form designs may emerge later. Keeping it behind one importable name (`import Rad.Form as Form`) makes Forms swappable.
+
+2. **One state cell per form.** `Form.withState` allocates a single `Cell Form.State` holding `{ snapshot, submitSeq, lastResolvedSubmitSeq }`. Field cells are user-allocated separately. Form is constructed at use sites via `Form.over state fields members` — pure, cheap to call per render.
+
+3. **Members are user-curated.** `Form.field` and `Form.validatedField` capture cell IDs and (for ValidatedCells) reaction guts. Cells in the model but not listed in members aren't snapshotted/reset/dirty-checked.
+
+4. **Snapshot is a JSON object keyed by stringified cell IDs.** Starts as `Encode.null`, meaning "pristine = each member's initial." On submit success, snapshot ← current encoded values. Cross-release ID stability is acknowledged as a Layer 7 concern.
+
+5. **Submit gate is a single Reaction with a multi-source trigger.** Trigger watches `[submitSeq, lastResolvedSubmitSeq] ++ [each validation cell in group]`. Re-fires whenever any change. Latest-wins via Layer 2's reaction-seq.
+
+6. **`onValid` reuses the reaction Cmd loop.** A sentinel `Task.succeed Encode.null` keeps it on the same lifecycle as `onSubmit`; the user's Action is recomputed and applied inside `writeResult`. No new runtime variant.
+
+7. **`Reaction model`'s `model` is phantom.** Validation reactions and form-submit reactions don't reference their `model` type variable in any field. We exploit this: store reaction-record-of-functions as `Rad.Internal.Reaction.Guts` (no `model` parameter), then re-wrap as `Reaction model` at use site. This lets `Form.Member` be non-parameterized.
+
+8. **`Form.Status`'s `HasErrors` wins over `Submitting`.** A late-arriving Invalid validation surfaces as `HasErrors` even when a submit is pending — the user sees the error rather than a misleading "Submitting" state.
+
+9. **`validators4`..`validators8` take a packer function.** Elm tuples are limited to arity 2 and 3, so `validators1`/`validators2`/`validators3` return tuples, while `validators4`+ take a packer function (like `Maybe.map4`/`map5`) producing the user's chosen `clean` type — typically a record.
+
 ---
 
 ## Reactions — Async Effects
