@@ -4,6 +4,16 @@ module Rad.Internal.CellBuilder exposing
     , CellBuilder(..)
     )
 
+{-| Internal: the `CellBuilder` opaque type and its build-state helpers.
+The constructor is exposed so that `Rad` (for `build`, `with`, `runBuilder`,
+`withDebounced`, `withValidated`, `withInstance`) and `Rad.Form` (for
+`Form.withState`, in Layer 5) can both construct and pattern-match builders
+without depending on each other.
+
+User code only sees `Rad.CellBuilder ctor`, opaquely.
+
+-}
+
 import Json.Decode as Decode
 
 

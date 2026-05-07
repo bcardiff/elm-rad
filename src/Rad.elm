@@ -43,7 +43,7 @@ import Json.Encode as Encode
 import Process
 import Rad.Engine
 import Rad.Internal.Action as IA
-import Rad.Internal.CellBuilder as ICellBuilder exposing (BuildResult, BuildState, CellBuilder(..))
+import Rad.Internal.CellBuilder as ICellBuilder exposing (CellBuilder(..))
 import Rad.Internal.Debounced as IDebounced
 import Rad.Internal.Msg as IMsg
 import Rad.Internal.Reaction as IReaction
