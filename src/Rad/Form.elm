@@ -557,35 +557,56 @@ validators3 g1 g2 g3 =
         }
 
 
-{-| Group with four validators. `clean` = `( ( a, b ), ( c, d ) )`.
+{-| Group with four validators. The packer function receives the four clean
+values in order and returns the typed `clean` type (typically a record).
+
+    validators4 (\name email age role -> { name = name, email = email, age = age, role = role })
+        .name
+        .email
+        .age
+        .role
+
 -}
 validators4 :
-    (fields -> Rad.ValidatedCell err1 a)
+    (a -> b -> c -> d -> clean)
+    -> (fields -> Rad.ValidatedCell err1 a)
     -> (fields -> Rad.ValidatedCell err2 b)
     -> (fields -> Rad.ValidatedCell err3 c)
     -> (fields -> Rad.ValidatedCell err4 d)
-    -> ValidatedGroup fields ( ( a, b ), ( c, d ) )
-validators4 g1 g2 g3 g4 =
+    -> ValidatedGroup fields clean
+validators4 packer g1 g2 g3 g4 =
     IGroup.ValidatedGroup
         { ids = \f -> [ validationIdOf g1 f, validationIdOf g2 f, validationIdOf g3 f, validationIdOf g4 f ]
         , read =
             \f r ->
-                Maybe.map2 Tuple.pair
-                    (Maybe.map2 Tuple.pair (extractValid g1 f r) (extractValid g2 f r))
-                    (Maybe.map2 Tuple.pair (extractValid g3 f r) (extractValid g4 f r))
+                Maybe.map4 packer
+                    (extractValid g1 f r)
+                    (extractValid g2 f r)
+                    (extractValid g3 f r)
+                    (extractValid g4 f r)
         }
 
 
-{-| Group with five validators. `clean` = `( ( a, b ), ( c, d, e ) )`.
+{-| Group with five validators. The packer function receives the five clean
+values in order and returns the typed `clean` type (typically a record).
+
+    validators5 (\name email age role active -> { name = name, email = email, age = age, role = role, active = active })
+        .name
+        .email
+        .age
+        .role
+        .active
+
 -}
 validators5 :
-    (fields -> Rad.ValidatedCell err1 a)
+    (a -> b -> c -> d -> e -> clean)
+    -> (fields -> Rad.ValidatedCell err1 a)
     -> (fields -> Rad.ValidatedCell err2 b)
     -> (fields -> Rad.ValidatedCell err3 c)
     -> (fields -> Rad.ValidatedCell err4 d)
     -> (fields -> Rad.ValidatedCell err5 e)
-    -> ValidatedGroup fields ( ( a, b ), ( c, d, e ) )
-validators5 g1 g2 g3 g4 g5 =
+    -> ValidatedGroup fields clean
+validators5 packer g1 g2 g3 g4 g5 =
     IGroup.ValidatedGroup
         { ids =
             \f ->
@@ -597,27 +618,37 @@ validators5 g1 g2 g3 g4 g5 =
                 ]
         , read =
             \f r ->
-                Maybe.map2 Tuple.pair
-                    (Maybe.map2 Tuple.pair (extractValid g1 f r) (extractValid g2 f r))
-                    (Maybe.map3 (\c d e -> ( c, d, e ))
-                        (extractValid g3 f r)
-                        (extractValid g4 f r)
-                        (extractValid g5 f r)
-                    )
+                Maybe.map5 packer
+                    (extractValid g1 f r)
+                    (extractValid g2 f r)
+                    (extractValid g3 f r)
+                    (extractValid g4 f r)
+                    (extractValid g5 f r)
         }
 
 
-{-| Group with six validators. `clean` = `( ( a, b, c ), ( d, e, ff ) )`.
+{-| Group with six validators. The packer function receives the six clean
+values in order and returns the typed `clean` type (typically a record).
+
+    validators6 (\a b c d e f -> { fieldA = a, fieldB = b, fieldC = c, fieldD = d, fieldE = e, fieldF = f })
+        .fieldA
+        .fieldB
+        .fieldC
+        .fieldD
+        .fieldE
+        .fieldF
+
 -}
 validators6 :
-    (fields -> Rad.ValidatedCell err1 a)
+    (a -> b -> c -> d -> e -> f -> clean)
+    -> (fields -> Rad.ValidatedCell err1 a)
     -> (fields -> Rad.ValidatedCell err2 b)
     -> (fields -> Rad.ValidatedCell err3 c)
     -> (fields -> Rad.ValidatedCell err4 d)
     -> (fields -> Rad.ValidatedCell err5 e)
-    -> (fields -> Rad.ValidatedCell err6 ff)
-    -> ValidatedGroup fields ( ( a, b, c ), ( d, e, ff ) )
-validators6 g1 g2 g3 g4 g5 g6 =
+    -> (fields -> Rad.ValidatedCell err6 f)
+    -> ValidatedGroup fields clean
+validators6 packer g1 g2 g3 g4 g5 g6 =
     IGroup.ValidatedGroup
         { ids =
             \f ->
@@ -630,35 +661,42 @@ validators6 g1 g2 g3 g4 g5 g6 =
                 ]
         , read =
             \f r ->
-                Maybe.map2 Tuple.pair
-                    (Maybe.map3 (\a b c -> ( a, b, c ))
+                Maybe.map2 (\applyTo5 sixth -> applyTo5 sixth)
+                    (Maybe.map5 packer
                         (extractValid g1 f r)
                         (extractValid g2 f r)
                         (extractValid g3 f r)
-                    )
-                    (Maybe.map3 (\d e ff -> ( d, e, ff ))
                         (extractValid g4 f r)
                         (extractValid g5 f r)
-                        (extractValid g6 f r)
                     )
+                    (extractValid g6 f r)
         }
 
 
-{-| Group with seven validators. `clean` = `( ( a, b, c ), ( d, e, ff, g ) )` where the second element is `( ( d, e ), ( ff, g ) )`.
+{-| Group with seven validators. The packer function receives the seven clean
+values in order and returns the typed `clean` type (typically a record).
 
-Actually: `( ( a, b, c ), ( ( d, e ), ( ff, g ) ) )`.
+    validators7 (\a b c d e f g -> { fieldA = a, fieldB = b, fieldC = c, fieldD = d, fieldE = e, fieldF = f, fieldG = g })
+        .fieldA
+        .fieldB
+        .fieldC
+        .fieldD
+        .fieldE
+        .fieldF
+        .fieldG
 
 -}
 validators7 :
-    (fields -> Rad.ValidatedCell err1 a)
+    (a -> b -> c -> d -> e -> f -> g -> clean)
+    -> (fields -> Rad.ValidatedCell err1 a)
     -> (fields -> Rad.ValidatedCell err2 b)
     -> (fields -> Rad.ValidatedCell err3 c)
     -> (fields -> Rad.ValidatedCell err4 d)
     -> (fields -> Rad.ValidatedCell err5 e)
-    -> (fields -> Rad.ValidatedCell err6 ff)
+    -> (fields -> Rad.ValidatedCell err6 f)
     -> (fields -> Rad.ValidatedCell err7 g)
-    -> ValidatedGroup fields ( ( a, b, c ), ( ( d, e ), ( ff, g ) ) )
-validators7 g1 g2 g3 g4 g5 g6 g7 =
+    -> ValidatedGroup fields clean
+validators7 packer g1 g2 g3 g4 g5 g6 g7 =
     IGroup.ValidatedGroup
         { ids =
             \f ->
@@ -672,32 +710,45 @@ validators7 g1 g2 g3 g4 g5 g6 g7 =
                 ]
         , read =
             \f r ->
-                Maybe.map2 Tuple.pair
-                    (Maybe.map3 (\a b c -> ( a, b, c ))
+                Maybe.map3 (\applyTo5 sixth seventh -> applyTo5 sixth seventh)
+                    (Maybe.map5 packer
                         (extractValid g1 f r)
                         (extractValid g2 f r)
                         (extractValid g3 f r)
+                        (extractValid g4 f r)
+                        (extractValid g5 f r)
                     )
-                    (Maybe.map2 Tuple.pair
-                        (Maybe.map2 Tuple.pair (extractValid g4 f r) (extractValid g5 f r))
-                        (Maybe.map2 Tuple.pair (extractValid g6 f r) (extractValid g7 f r))
-                    )
+                    (extractValid g6 f r)
+                    (extractValid g7 f r)
         }
 
 
-{-| Group with eight validators. `clean` = `( ( a, b, c ), ( ( d, e ), ( ff, g, h ) ) )`.
+{-| Group with eight validators. The packer function receives the eight clean
+values in order and returns the typed `clean` type (typically a record).
+
+    validators8 (\a b c d e f g h -> { fieldA = a, fieldB = b, fieldC = c, fieldD = d, fieldE = e, fieldF = f, fieldG = g, fieldH = h })
+        .fieldA
+        .fieldB
+        .fieldC
+        .fieldD
+        .fieldE
+        .fieldF
+        .fieldG
+        .fieldH
+
 -}
 validators8 :
-    (fields -> Rad.ValidatedCell err1 a)
+    (a -> b -> c -> d -> e -> f -> g -> h -> clean)
+    -> (fields -> Rad.ValidatedCell err1 a)
     -> (fields -> Rad.ValidatedCell err2 b)
     -> (fields -> Rad.ValidatedCell err3 c)
     -> (fields -> Rad.ValidatedCell err4 d)
     -> (fields -> Rad.ValidatedCell err5 e)
-    -> (fields -> Rad.ValidatedCell err6 ff)
+    -> (fields -> Rad.ValidatedCell err6 f)
     -> (fields -> Rad.ValidatedCell err7 g)
     -> (fields -> Rad.ValidatedCell err8 h)
-    -> ValidatedGroup fields ( ( a, b, c ), ( ( d, e ), ( ff, g, h ) ) )
-validators8 g1 g2 g3 g4 g5 g6 g7 g8 =
+    -> ValidatedGroup fields clean
+validators8 packer g1 g2 g3 g4 g5 g6 g7 g8 =
     IGroup.ValidatedGroup
         { ids =
             \f ->
@@ -712,20 +763,17 @@ validators8 g1 g2 g3 g4 g5 g6 g7 g8 =
                 ]
         , read =
             \f r ->
-                Maybe.map2 Tuple.pair
-                    (Maybe.map3 (\a b c -> ( a, b, c ))
+                Maybe.map4 (\applyTo5 sixth seventh eighth -> applyTo5 sixth seventh eighth)
+                    (Maybe.map5 packer
                         (extractValid g1 f r)
                         (extractValid g2 f r)
                         (extractValid g3 f r)
+                        (extractValid g4 f r)
+                        (extractValid g5 f r)
                     )
-                    (Maybe.map2 Tuple.pair
-                        (Maybe.map2 Tuple.pair (extractValid g4 f r) (extractValid g5 f r))
-                        (Maybe.map3 (\ff g_ h -> ( ff, g_, h ))
-                            (extractValid g6 f r)
-                            (extractValid g7 f r)
-                            (extractValid g8 f r)
-                        )
-                    )
+                    (extractValid g6 f r)
+                    (extractValid g7 f r)
+                    (extractValid g8 f r)
         }
 
 
