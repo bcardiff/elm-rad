@@ -71,4 +71,22 @@ suite =
                         Form.over m.st { n = m.n, v = m.v } [ Form.field m.n, Form.validatedField m.v ]
                 in
                 Expect.equal 2 (Form.memberCount f)
+        , test "Form.reactions returns one Reaction per ValidatedMember (none for PlainMember)" <|
+            \_ ->
+                let
+                    initR =
+                        build (\n v st -> { n = n, v = v, st = st })
+                            |> Rad.with "n" 0 Rad.intCodec
+                            |> Rad.withValidated "v" "" Rad.stringCodec Rad.stringCodec (Rad.sync Ok)
+                            |> Form.withState "form"
+
+                    ( model_, _ ) =
+                        Rad.runBuilder initR
+
+                    f =
+                        Form.over model_.st
+                            { v = model_.v }
+                            [ Form.field model_.n, Form.validatedField model_.v ]
+                in
+                Expect.equal 1 (List.length (Form.reactions f))
         ]

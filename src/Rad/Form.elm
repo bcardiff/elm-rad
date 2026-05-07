@@ -3,6 +3,7 @@ module Rad.Form exposing
     , withState
     , over, field, validatedField
     , dirty, submit, reset
+    , reactions
     , Status(..), status, canSubmit, submitPending, invalid, checking
     , memberCount
     , ValidatedGroup, validators1, validators2, validators3, validators4
@@ -32,6 +33,11 @@ module Rad.Form exposing
 @docs dirty, submit, reset
 
 
+# Reactions
+
+@docs reactions
+
+
 # Status
 
 @docs Status, status, canSubmit, submitPending, invalid, checking
@@ -55,6 +61,7 @@ import Rad exposing (Cell, CellBuilder, Codec)
 import Rad.Internal.Action as IAction exposing (Action(..))
 import Rad.Internal.CellBuilder exposing (CellBuilder(..))
 import Rad.Internal.Form as IForm
+import Rad.Internal.Reaction as IReaction
 import Rad.Internal.Registry as Registry exposing (Registry)
 import Rad.Internal.Source as ISource
 import Rad.Internal.Validated as IValidated
@@ -310,6 +317,24 @@ reset (IForm.Form f) =
             in
             List.foldl resetMember registry f.members
         )
+
+
+{-| One reaction per ValidatedMember; PlainMembers contribute nothing.
+Concatenate with the user's other reactions in `AppDef.reactions`.
+-}
+reactions : Form fields -> List (Rad.Reaction model)
+reactions (IForm.Form f) =
+    List.filterMap memberReaction f.members
+
+
+memberReaction : Member -> Maybe (Rad.Reaction model)
+memberReaction member =
+    case member of
+        IForm.ValidatedMember m ->
+            Just (IReaction.fromGuts m.reactionGuts)
+
+        IForm.PlainMember _ ->
+            Nothing
 
 
 dormantEncoded : Decode.Value
