@@ -9,6 +9,21 @@ import Rad.Internal.Registry as Registry
 import Test exposing (..)
 
 
+type alias BigModel =
+    { n : Rad.Cell Int
+    , v : Rad.ValidatedCell String String
+    , st : Rad.Cell Form.State
+    }
+
+
+initBig : Rad.CellBuilder BigModel
+initBig =
+    build (\n v st -> { n = n, v = v, st = st })
+        |> Rad.with "n" 7 Rad.intCodec
+        |> Rad.withValidated "v" "" Rad.stringCodec Rad.stringCodec (Rad.sync Ok)
+        |> Form.withState "form"
+
+
 type alias Model =
     { profileForm : Rad.Cell Form.State }
 
@@ -46,4 +61,14 @@ suite =
                         Rad.runBuilder init
                 in
                 Expect.equal "profile-form" (Rad.cellKey model.profileForm)
+        , test "Form.over captures fields and members" <|
+            \_ ->
+                let
+                    ( m, _ ) =
+                        Rad.runBuilder initBig
+
+                    f =
+                        Form.over m.st { n = m.n, v = m.v } [ Form.field m.n, Form.validatedField m.v ]
+                in
+                Expect.equal 2 (Form.memberCount f)
         ]
