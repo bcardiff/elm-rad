@@ -43,6 +43,7 @@ import Json.Encode as Encode
 import Process
 import Rad.Engine
 import Rad.Internal.Action as IA
+import Rad.Internal.CellBuilder as ICellBuilder exposing (BuildResult, BuildState, CellBuilder(..))
 import Rad.Internal.Debounced as IDebounced
 import Rad.Internal.Msg as IMsg
 import Rad.Internal.Reaction as IReaction
@@ -193,21 +194,8 @@ cellKey (Cell c) =
 
 {-| An applicative builder for constructing a model made of cells.
 -}
-type CellBuilder ctor
-    = CellBuilder (BuildState -> BuildResult ctor)
-
-
-type alias BuildState =
-    { nextId : Int
-    , prefix : String
-    }
-
-
-type alias BuildResult ctor =
-    { nextId : Int
-    , metas : List ( Int, Decode.Value )
-    , ctor : ctor
-    }
+type alias CellBuilder ctor =
+    ICellBuilder.CellBuilder ctor
 
 
 {-| Start a CellBuilder from a model constructor.
