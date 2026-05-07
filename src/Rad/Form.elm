@@ -3,6 +3,7 @@ module Rad.Form exposing
     , withState
     , over, field, validatedField
     , dirty, submit, reset
+    , Status(..), status, canSubmit, submitPending, invalid, checking
     , memberCount
     )
 
@@ -27,6 +28,11 @@ module Rad.Form exposing
 # Behaviors
 
 @docs dirty, submit, reset
+
+
+# Status
+
+@docs Status, status, canSubmit, submitPending, invalid, checking
 
 
 # Inspection
@@ -300,6 +306,155 @@ reset (IForm.Form f) =
 dormantEncoded : Decode.Value
 dormantEncoded =
     Encode.object [ ( "tag", Encode.string "Dormant" ) ]
+
+
+{-| Bundled snapshot of the form's UI state. Suitable for rendering a submit
+button. See `status` for precedence.
+-}
+type Status
+    = Pristine
+    | Editable
+    | HasErrors
+    | Validating
+    | Submitting
+
+
+{-| `True` iff submitSeq > lastResolvedSubmitSeq.
+-}
+submitPending : Form fields -> Rad.Source Bool
+submitPending (IForm.Form f) =
+    boolSource
+        (\registry ->
+            let
+                s =
+                    IForm.readState f.stateId registry
+            in
+            s.submitSeq > s.lastResolvedSubmitSeq
+        )
+
+
+{-| `True` iff any ValidatedMember's validation slot decodes to Invalid.
+-}
+invalid : Form fields -> Rad.Source Bool
+invalid (IForm.Form f) =
+    boolSource (\registry -> List.any (memberHasTag IForm.TagInvalid registry) f.members)
+
+
+{-| `True` iff any ValidatedMember's validation slot decodes to Checking.
+-}
+checking : Form fields -> Rad.Source Bool
+checking (IForm.Form f) =
+    boolSource (\registry -> List.any (memberHasTag IForm.TagChecking registry) f.members)
+
+
+{-| dirty AND not invalid AND not checking AND not submitPending.
+-}
+canSubmit : Form fields -> Rad.Source Bool
+canSubmit form =
+    boolSource
+        (\registry ->
+            Rad.readSource (dirty form) registry
+                && not (Rad.readSource (invalid form) registry)
+                && not (Rad.readSource (checking form) registry)
+                && not (Rad.readSource (submitPending form) registry)
+        )
+
+
+{-| Bundled `Status`. Precedence: invalid → HasErrors; submitPending+checking
+→ Validating; submitPending → Submitting; dirty → Editable; else Pristine.
+-}
+status : Form fields -> Rad.Source Status
+status form =
+    ISource.Source
+        { read =
+            \registry ->
+                if Rad.readSource (invalid form) registry then
+                    HasErrors
+
+                else if Rad.readSource (submitPending form) registry && Rad.readSource (checking form) registry then
+                    Validating
+
+                else if Rad.readSource (submitPending form) registry then
+                    Submitting
+
+                else if Rad.readSource (dirty form) registry then
+                    Editable
+
+                else
+                    Pristine
+        , codec =
+            { encode =
+                \s ->
+                    Encode.string
+                        (case s of
+                            Pristine ->
+                                "Pristine"
+
+                            Editable ->
+                                "Editable"
+
+                            HasErrors ->
+                                "HasErrors"
+
+                            Validating ->
+                                "Validating"
+
+                            Submitting ->
+                                "Submitting"
+                        )
+            , decode =
+                Decode.string
+                    |> Decode.andThen
+                        (\s ->
+                            case s of
+                                "Pristine" ->
+                                    Decode.succeed Pristine
+
+                                "Editable" ->
+                                    Decode.succeed Editable
+
+                                "HasErrors" ->
+                                    Decode.succeed HasErrors
+
+                                "Validating" ->
+                                    Decode.succeed Validating
+
+                                "Submitting" ->
+                                    Decode.succeed Submitting
+
+                                _ ->
+                                    Decode.fail ("unknown Status tag: " ++ s)
+                        )
+            }
+        }
+
+
+boolSource : (Registry -> Bool) -> Rad.Source Bool
+boolSource read =
+    ISource.Source
+        { read = read
+        , codec = { encode = Encode.bool, decode = Decode.bool }
+        }
+
+
+memberHasTag : IForm.ValidationTag -> Registry -> Member -> Bool
+memberHasTag tag registry member =
+    case member of
+        IForm.ValidatedMember m ->
+            case Registry.get m.validationId registry of
+                Just v ->
+                    case Decode.decodeValue IForm.validationTagDecoder v of
+                        Ok decoded ->
+                            decoded == tag
+
+                        Err _ ->
+                            False
+
+                Nothing ->
+                    False
+
+        IForm.PlainMember _ ->
+            False
 
 
 {-| Number of members in the form. For tests.
