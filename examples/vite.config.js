@@ -27,6 +27,7 @@ export default defineConfig({
         "L04E02-email-format": resolve(__dirname, "L04E02-email-format.html"),
         "L04E03-username-available": resolve(__dirname, "L04E03-username-available.html"),
         "L05E01-profile-form": resolve(__dirname, "L05E01-profile-form.html"),
+        "L05E02-wizard-step": resolve(__dirname, "L05E02-wizard-step.html"),
         "L06E01-counter-component": resolve(__dirname, "L06E01-counter-component.html"),
         "L06E02-tagpicker-component": resolve(__dirname, "L06E02-tagpicker-component.html"),
       },
