@@ -5,6 +5,8 @@ module Rad.Form exposing
     , dirty, submit, reset
     , Status(..), status, canSubmit, submitPending, invalid, checking
     , memberCount
+    , ValidatedGroup, validators1, validators2, validators3, validators4
+    , validators5, validators6, validators7, validators8, mapValidated, readGroup
     )
 
 {-| Layer 5 — Forms. Designed for `import Rad.Form as Form`.
@@ -39,6 +41,12 @@ module Rad.Form exposing
 
 @docs memberCount
 
+
+# ValidatedGroup
+
+@docs ValidatedGroup, validators1, validators2, validators3, validators4
+@docs validators5, validators6, validators7, validators8, mapValidated, readGroup
+
 -}
 
 import Json.Decode as Decode
@@ -50,6 +58,7 @@ import Rad.Internal.Form as IForm
 import Rad.Internal.Registry as Registry exposing (Registry)
 import Rad.Internal.Source as ISource
 import Rad.Internal.Validated as IValidated
+import Rad.Internal.ValidatedGroup as IGroup
 
 
 {-| Opaque transaction boundary over a cells record.
@@ -462,3 +471,269 @@ memberHasTag tag registry member =
 memberCount : Form fields -> Int
 memberCount (IForm.Form f) =
     List.length f.members
+
+
+{-| Typed bundle of validators in a form, used to gate submission.
+-}
+type alias ValidatedGroup fields clean =
+    IGroup.ValidatedGroup fields clean
+
+
+{-| Read a group's clean values from registry. Returns `Just clean` iff every
+validator is `Valid`. Mostly for tests.
+-}
+readGroup : ValidatedGroup fields clean -> fields -> Registry -> Maybe clean
+readGroup =
+    IGroup.readGroup
+
+
+extractValid : (fields -> Rad.ValidatedCell err a) -> fields -> Registry -> Maybe a
+extractValid getter fieldsRec registry =
+    let
+        c =
+            IValidated.core (getter fieldsRec)
+
+        validDecoder =
+            Decode.field "tag" Decode.string
+                |> Decode.andThen
+                    (\tag ->
+                        if tag == "Valid" then
+                            Decode.field "value" c.codec.decode
+
+                        else
+                            Decode.fail ("not Valid: " ++ tag)
+                    )
+    in
+    Registry.get c.validationId registry
+        |> Maybe.andThen (Decode.decodeValue validDecoder >> Result.toMaybe)
+
+
+validationIdOf : (fields -> Rad.ValidatedCell err a) -> fields -> Int
+validationIdOf getter fieldsRec =
+    .validationId (IValidated.ref (getter fieldsRec))
+
+
+{-| Group with a single validator. `clean` is the input type of the field.
+-}
+validators1 :
+    (fields -> Rad.ValidatedCell err a)
+    -> ValidatedGroup fields a
+validators1 g1 =
+    IGroup.ValidatedGroup
+        { ids = \f -> [ validationIdOf g1 f ]
+        , read = \f r -> extractValid g1 f r
+        }
+
+
+{-| Group with two validators. `clean` = `(a, b)`.
+-}
+validators2 :
+    (fields -> Rad.ValidatedCell err1 a)
+    -> (fields -> Rad.ValidatedCell err2 b)
+    -> ValidatedGroup fields ( a, b )
+validators2 g1 g2 =
+    IGroup.ValidatedGroup
+        { ids = \f -> [ validationIdOf g1 f, validationIdOf g2 f ]
+        , read = \f r -> Maybe.map2 Tuple.pair (extractValid g1 f r) (extractValid g2 f r)
+        }
+
+
+{-| Group with three validators.
+-}
+validators3 :
+    (fields -> Rad.ValidatedCell err1 a)
+    -> (fields -> Rad.ValidatedCell err2 b)
+    -> (fields -> Rad.ValidatedCell err3 c)
+    -> ValidatedGroup fields ( a, b, c )
+validators3 g1 g2 g3 =
+    IGroup.ValidatedGroup
+        { ids = \f -> [ validationIdOf g1 f, validationIdOf g2 f, validationIdOf g3 f ]
+        , read =
+            \f r ->
+                Maybe.map3 (\a b c -> ( a, b, c ))
+                    (extractValid g1 f r)
+                    (extractValid g2 f r)
+                    (extractValid g3 f r)
+        }
+
+
+{-| Group with four validators. `clean` = `( ( a, b ), ( c, d ) )`.
+-}
+validators4 :
+    (fields -> Rad.ValidatedCell err1 a)
+    -> (fields -> Rad.ValidatedCell err2 b)
+    -> (fields -> Rad.ValidatedCell err3 c)
+    -> (fields -> Rad.ValidatedCell err4 d)
+    -> ValidatedGroup fields ( ( a, b ), ( c, d ) )
+validators4 g1 g2 g3 g4 =
+    IGroup.ValidatedGroup
+        { ids = \f -> [ validationIdOf g1 f, validationIdOf g2 f, validationIdOf g3 f, validationIdOf g4 f ]
+        , read =
+            \f r ->
+                Maybe.map2 Tuple.pair
+                    (Maybe.map2 Tuple.pair (extractValid g1 f r) (extractValid g2 f r))
+                    (Maybe.map2 Tuple.pair (extractValid g3 f r) (extractValid g4 f r))
+        }
+
+
+{-| Group with five validators. `clean` = `( ( a, b ), ( c, d, e ) )`.
+-}
+validators5 :
+    (fields -> Rad.ValidatedCell err1 a)
+    -> (fields -> Rad.ValidatedCell err2 b)
+    -> (fields -> Rad.ValidatedCell err3 c)
+    -> (fields -> Rad.ValidatedCell err4 d)
+    -> (fields -> Rad.ValidatedCell err5 e)
+    -> ValidatedGroup fields ( ( a, b ), ( c, d, e ) )
+validators5 g1 g2 g3 g4 g5 =
+    IGroup.ValidatedGroup
+        { ids =
+            \f ->
+                [ validationIdOf g1 f
+                , validationIdOf g2 f
+                , validationIdOf g3 f
+                , validationIdOf g4 f
+                , validationIdOf g5 f
+                ]
+        , read =
+            \f r ->
+                Maybe.map2 Tuple.pair
+                    (Maybe.map2 Tuple.pair (extractValid g1 f r) (extractValid g2 f r))
+                    (Maybe.map3 (\c d e -> ( c, d, e ))
+                        (extractValid g3 f r)
+                        (extractValid g4 f r)
+                        (extractValid g5 f r)
+                    )
+        }
+
+
+{-| Group with six validators. `clean` = `( ( a, b, c ), ( d, e, ff ) )`.
+-}
+validators6 :
+    (fields -> Rad.ValidatedCell err1 a)
+    -> (fields -> Rad.ValidatedCell err2 b)
+    -> (fields -> Rad.ValidatedCell err3 c)
+    -> (fields -> Rad.ValidatedCell err4 d)
+    -> (fields -> Rad.ValidatedCell err5 e)
+    -> (fields -> Rad.ValidatedCell err6 ff)
+    -> ValidatedGroup fields ( ( a, b, c ), ( d, e, ff ) )
+validators6 g1 g2 g3 g4 g5 g6 =
+    IGroup.ValidatedGroup
+        { ids =
+            \f ->
+                [ validationIdOf g1 f
+                , validationIdOf g2 f
+                , validationIdOf g3 f
+                , validationIdOf g4 f
+                , validationIdOf g5 f
+                , validationIdOf g6 f
+                ]
+        , read =
+            \f r ->
+                Maybe.map2 Tuple.pair
+                    (Maybe.map3 (\a b c -> ( a, b, c ))
+                        (extractValid g1 f r)
+                        (extractValid g2 f r)
+                        (extractValid g3 f r)
+                    )
+                    (Maybe.map3 (\d e ff -> ( d, e, ff ))
+                        (extractValid g4 f r)
+                        (extractValid g5 f r)
+                        (extractValid g6 f r)
+                    )
+        }
+
+
+{-| Group with seven validators. `clean` = `( ( a, b, c ), ( d, e, ff, g ) )` where the second element is `( ( d, e ), ( ff, g ) )`.
+
+Actually: `( ( a, b, c ), ( ( d, e ), ( ff, g ) ) )`.
+
+-}
+validators7 :
+    (fields -> Rad.ValidatedCell err1 a)
+    -> (fields -> Rad.ValidatedCell err2 b)
+    -> (fields -> Rad.ValidatedCell err3 c)
+    -> (fields -> Rad.ValidatedCell err4 d)
+    -> (fields -> Rad.ValidatedCell err5 e)
+    -> (fields -> Rad.ValidatedCell err6 ff)
+    -> (fields -> Rad.ValidatedCell err7 g)
+    -> ValidatedGroup fields ( ( a, b, c ), ( ( d, e ), ( ff, g ) ) )
+validators7 g1 g2 g3 g4 g5 g6 g7 =
+    IGroup.ValidatedGroup
+        { ids =
+            \f ->
+                [ validationIdOf g1 f
+                , validationIdOf g2 f
+                , validationIdOf g3 f
+                , validationIdOf g4 f
+                , validationIdOf g5 f
+                , validationIdOf g6 f
+                , validationIdOf g7 f
+                ]
+        , read =
+            \f r ->
+                Maybe.map2 Tuple.pair
+                    (Maybe.map3 (\a b c -> ( a, b, c ))
+                        (extractValid g1 f r)
+                        (extractValid g2 f r)
+                        (extractValid g3 f r)
+                    )
+                    (Maybe.map2 Tuple.pair
+                        (Maybe.map2 Tuple.pair (extractValid g4 f r) (extractValid g5 f r))
+                        (Maybe.map2 Tuple.pair (extractValid g6 f r) (extractValid g7 f r))
+                    )
+        }
+
+
+{-| Group with eight validators. `clean` = `( ( a, b, c ), ( ( d, e ), ( ff, g, h ) ) )`.
+-}
+validators8 :
+    (fields -> Rad.ValidatedCell err1 a)
+    -> (fields -> Rad.ValidatedCell err2 b)
+    -> (fields -> Rad.ValidatedCell err3 c)
+    -> (fields -> Rad.ValidatedCell err4 d)
+    -> (fields -> Rad.ValidatedCell err5 e)
+    -> (fields -> Rad.ValidatedCell err6 ff)
+    -> (fields -> Rad.ValidatedCell err7 g)
+    -> (fields -> Rad.ValidatedCell err8 h)
+    -> ValidatedGroup fields ( ( a, b, c ), ( ( d, e ), ( ff, g, h ) ) )
+validators8 g1 g2 g3 g4 g5 g6 g7 g8 =
+    IGroup.ValidatedGroup
+        { ids =
+            \f ->
+                [ validationIdOf g1 f
+                , validationIdOf g2 f
+                , validationIdOf g3 f
+                , validationIdOf g4 f
+                , validationIdOf g5 f
+                , validationIdOf g6 f
+                , validationIdOf g7 f
+                , validationIdOf g8 f
+                ]
+        , read =
+            \f r ->
+                Maybe.map2 Tuple.pair
+                    (Maybe.map3 (\a b c -> ( a, b, c ))
+                        (extractValid g1 f r)
+                        (extractValid g2 f r)
+                        (extractValid g3 f r)
+                    )
+                    (Maybe.map2 Tuple.pair
+                        (Maybe.map2 Tuple.pair (extractValid g4 f r) (extractValid g5 f r))
+                        (Maybe.map3 (\ff g_ h -> ( ff, g_, h ))
+                            (extractValid g6 f r)
+                            (extractValid g7 f r)
+                            (extractValid g8 f r)
+                        )
+                    )
+        }
+
+
+{-| Transform a group's clean type. Useful for packing tuples into records.
+-}
+mapValidated : (a -> b) -> ValidatedGroup fields a -> ValidatedGroup fields b
+mapValidated f (IGroup.ValidatedGroup g) =
+    IGroup.ValidatedGroup
+        { ids = g.ids
+        , read = \fieldsRec registry -> Maybe.map f (g.read fieldsRec registry)
+        }
