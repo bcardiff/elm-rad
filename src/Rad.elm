@@ -1,6 +1,6 @@
 module Rad exposing
     ( Cell
-    , cellKey
+    , cellKey, cellId, cellEncodedInitial, cellFromInternal
     , DebouncedCell, withDebounced
     , raw, settled, synced, commit, revert
     , ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation(..), validationCodec, runSyncOnly, validationReactions
@@ -19,7 +19,7 @@ module Rad exposing
 {-| elm-rad — reactive cell DSL.
 
 @docs Cell
-@docs cellKey
+@docs cellKey, cellId, cellEncodedInitial, cellFromInternal
 @docs DebouncedCell, withDebounced
 @docs raw, settled, synced, commit, revert
 @docs ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation, validationCodec, runSyncOnly, validationReactions
@@ -190,6 +190,38 @@ Layer 7 persistence integration and testing.
 cellKey : Cell a -> String
 cellKey (Cell c) =
     c.key
+
+
+{-| Inspect a cell's runtime ID. Useful for low-level integration (Form
+membership, persistence keying). Most users won't need this.
+-}
+cellId : Cell a -> Int
+cellId (Cell c) =
+    c.id
+
+
+{-| Inspect a cell's initial value, already encoded via its codec. Used by
+`Rad.Form` to capture pristine snapshot values without exposing the codec.
+-}
+cellEncodedInitial : Cell a -> Decode.Value
+cellEncodedInitial (Cell c) =
+    c.codec.encode c.initial
+
+
+{-| Internal helper for builder modules outside `Rad.elm` (`Rad.Form`'s
+`withState`). Constructs a `Cell` from an already-resolved id, key, codec,
+and initial. Most users have no reason to call this — use `with`,
+`withDebounced`, `withValidated`, or `Form.withState` instead.
+-}
+cellFromInternal :
+    { id : Int
+    , key : String
+    , codec : Codec a
+    , initial : a
+    }
+    -> Cell a
+cellFromInternal r =
+    Cell r
 
 
 {-| An applicative builder for constructing a model made of cells.
