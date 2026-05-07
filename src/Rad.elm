@@ -10,7 +10,7 @@ module Rad exposing
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
     , Remote(..), remoteCodec
     , Source, toSource, readSource, derive
-    , Action, set, modify, copy, batch, applyAction
+    , Action, set, modify, copy, batch, applyAction, noAction
     , Request, noRequest, mapRequestError, andThenRequest
     , AppDef, AppModel, run
     , ComponentDef, defineComponent, withInstance, embed, include
@@ -30,7 +30,7 @@ module Rad exposing
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
 @docs Remote, remoteCodec
 @docs Source, toSource, readSource, derive
-@docs Action, set, modify, copy, batch, applyAction
+@docs Action, set, modify, copy, batch, applyAction, noAction
 @docs Request, noRequest, mapRequestError, andThenRequest
 @docs AppDef, AppModel, run
 @docs ComponentDef, defineComponent, withInstance, embed, include
@@ -780,6 +780,14 @@ batch actions =
 applyAction : Action model -> Registry -> Registry
 applyAction =
     IA.apply
+
+
+{-| The identity Action — does nothing to the registry. Useful as a default
+or a no-op placeholder.
+-}
+noAction : Action model
+noAction =
+    IA.Action identity
 
 
 {-| An asynchronous request produced by an effect library (e.g., `Rad.Http`).

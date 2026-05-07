@@ -127,4 +127,28 @@ suite =
 
                             _ ->
                                 Expect.fail "expected SkipRequest (toRequest returned noRequest)"
+        , test "Form.onValid: SkipRequest when not all Valid; DispatchTask sentinel when all Valid + submit pending" <|
+            \_ ->
+                let
+                    ( m, r0 ) =
+                        Rad.runBuilder init
+
+                    r1 =
+                        r0
+                            |> Rad.applyAction (Form.submit (buildForm m))
+                            |> setValid m.name (Encode.string "alice")
+
+                    react =
+                        Form.onValid (buildForm m)
+                            (Form.validators1 .name)
+                            (\_ -> Rad.noAction)
+                in
+                case react of
+                    IReaction.Reaction g ->
+                        case g.buildRequest r1 of
+                            IReaction.DispatchTask _ ->
+                                Expect.pass
+
+                            _ ->
+                                Expect.fail "expected DispatchTask"
         ]

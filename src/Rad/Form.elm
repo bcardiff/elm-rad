@@ -4,7 +4,7 @@ module Rad.Form exposing
     , over, field, validatedField
     , dirty, submit, reset
     , reactions
-    , onSubmit
+    , onSubmit, onValid
     , Status(..), status, canSubmit, submitPending, invalid, checking
     , memberCount
     , ValidatedGroup, validators1, validators2, validators3, validators4
@@ -41,7 +41,7 @@ module Rad.Form exposing
 
 # Submit gating
 
-@docs onSubmit
+@docs onSubmit, onValid
 
 
 # Status
@@ -434,6 +434,76 @@ onSubmit form group toRequest targetCell =
 
                 else
                     r1
+        }
+
+
+{-| Like `onSubmit`, but runs an Action instead of dispatching a Request. On
+each fire (when the gate passes), bumps `lastResolvedSubmitSeq` to
+`submitSeq` and advances the snapshot.
+-}
+onValid :
+    Form fields
+    -> ValidatedGroup fields clean
+    -> (clean -> Rad.Action model)
+    -> Rad.Reaction model
+onValid form group toAction =
+    let
+        (IForm.Form f) =
+            form
+    in
+    IReaction.fromGuts
+        { readTrigger =
+            \registry ->
+                let
+                    state =
+                        IForm.readState f.stateId registry
+
+                    valIds =
+                        IGroup.validationIds group f.fields
+
+                    valEncoded =
+                        List.map
+                            (\id -> Registry.get id registry |> Maybe.withDefault Encode.null)
+                            valIds
+                in
+                Encode.list identity
+                    (Encode.int state.submitSeq
+                        :: Encode.int state.lastResolvedSubmitSeq
+                        :: valEncoded
+                    )
+        , buildRequest =
+            \registry ->
+                let
+                    state =
+                        IForm.readState f.stateId registry
+                in
+                if state.submitSeq <= state.lastResolvedSubmitSeq then
+                    IReaction.SkipRequest
+
+                else
+                    case IGroup.readGroup group f.fields registry of
+                        Just _ ->
+                            -- sentinel task; writeResult does the actual work
+                            IReaction.DispatchTask (Task.succeed Encode.null)
+
+                        Nothing ->
+                            IReaction.SkipRequest
+        , writeLoading = identity
+        , writeResult =
+            \_ registry ->
+                case IGroup.readGroup group f.fields registry of
+                    Just clean ->
+                        let
+                            (IAction.Action applyUserAction) =
+                                toAction clean
+
+                            r1 =
+                                applyUserAction registry
+                        in
+                        advanceSnapshot form r1
+
+                    Nothing ->
+                        registry
         }
 
 
