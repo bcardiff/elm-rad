@@ -2,6 +2,7 @@ module Rad.Form exposing
     ( Form, Member, State, stateCodec
     , withState
     , over, field, validatedField
+    , dirty
     , memberCount
     )
 
@@ -23,15 +24,24 @@ module Rad.Form exposing
 @docs over, field, validatedField
 
 
+# Behaviors
+
+@docs dirty
+
+
 # Inspection
 
 @docs memberCount
 
 -}
 
+import Json.Decode as Decode
+import Json.Encode as Encode
 import Rad exposing (Cell, CellBuilder, Codec)
 import Rad.Internal.CellBuilder exposing (CellBuilder(..))
 import Rad.Internal.Form as IForm
+import Rad.Internal.Registry as Registry exposing (Registry)
+import Rad.Internal.Source as ISource
 import Rad.Internal.Validated as IValidated
 
 
@@ -133,6 +143,74 @@ validatedField vcell =
         , initial = c.codec.encode c.initial
         , reactionGuts = Rad.internalValidationReactionGuts vcell
         }
+
+
+{-| `True` iff any member's current registry value differs from the form's
+pristine reference (snapshot when non-null, otherwise each member's initial).
+-}
+dirty : Form fields -> Rad.Source Bool
+dirty (IForm.Form f) =
+    ISource.Source
+        { read =
+            \registry ->
+                let
+                    state =
+                        IForm.readState f.stateId registry
+
+                    snapshotIsNull =
+                        Decode.decodeValue (Decode.null ()) state.snapshot == Ok ()
+
+                    pristineFor : Member -> Decode.Value
+                    pristineFor member =
+                        if snapshotIsNull then
+                            memberInitial member
+
+                        else
+                            case
+                                Decode.decodeValue
+                                    (Decode.field
+                                        (String.fromInt (memberInputId member))
+                                        Decode.value
+                                    )
+                                    state.snapshot
+                            of
+                                Ok v ->
+                                    v
+
+                                Err _ ->
+                                    memberInitial member
+
+                    isMemberDirty member =
+                        case Registry.get (memberInputId member) registry of
+                            Just current ->
+                                current /= pristineFor member
+
+                            Nothing ->
+                                False
+                in
+                List.any isMemberDirty f.members
+        , codec = { encode = Encode.bool, decode = Decode.bool }
+        }
+
+
+memberInputId : Member -> Int
+memberInputId member =
+    case member of
+        IForm.PlainMember m ->
+            m.inputId
+
+        IForm.ValidatedMember m ->
+            m.inputId
+
+
+memberInitial : Member -> Decode.Value
+memberInitial member =
+    case member of
+        IForm.PlainMember m ->
+            m.initial
+
+        IForm.ValidatedMember m ->
+            m.initial
 
 
 {-| Number of members in the form. For tests.
