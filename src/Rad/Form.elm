@@ -4,6 +4,7 @@ module Rad.Form exposing
     , over, field, validatedField
     , dirty, submit, reset
     , reactions
+    , onSubmit
     , Status(..), status, canSubmit, submitPending, invalid, checking
     , memberCount
     , ValidatedGroup, validators1, validators2, validators3, validators4
@@ -38,6 +39,11 @@ module Rad.Form exposing
 @docs reactions
 
 
+# Submit gating
+
+@docs onSubmit
+
+
 # Status
 
 @docs Status, status, canSubmit, submitPending, invalid, checking
@@ -63,9 +69,11 @@ import Rad.Internal.CellBuilder exposing (CellBuilder(..))
 import Rad.Internal.Form as IForm
 import Rad.Internal.Reaction as IReaction
 import Rad.Internal.Registry as Registry exposing (Registry)
+import Rad.Internal.Request as IRequest
 import Rad.Internal.Source as ISource
 import Rad.Internal.Validated as IValidated
 import Rad.Internal.ValidatedGroup as IGroup
+import Task
 
 
 {-| Opaque transaction boundary over a cells record.
@@ -325,6 +333,142 @@ Concatenate with the user's other reactions in `AppDef.reactions`.
 reactions : Form fields -> List (Rad.Reaction model)
 reactions (IForm.Form f) =
     List.filterMap memberReaction f.members
+
+
+{-| A reaction that fires a `Request` when the form is submitted and all
+validators in the group are `Valid`. On success, advances the form's
+snapshot and `lastResolvedSubmitSeq`. The target cell is `Cell (Remote err r)`.
+-}
+onSubmit :
+    Form fields
+    -> ValidatedGroup fields clean
+    -> (clean -> Rad.Request err r)
+    -> Rad.Cell (Rad.Remote err r)
+    -> Rad.Reaction model
+onSubmit form group toRequest targetCell =
+    let
+        (IForm.Form f) =
+            form
+
+        targetId =
+            Rad.cellId targetCell
+
+        targetCodec =
+            Rad.cellCodec targetCell
+    in
+    IReaction.fromGuts
+        { readTrigger =
+            \registry ->
+                let
+                    state =
+                        IForm.readState f.stateId registry
+
+                    valIds =
+                        IGroup.validationIds group f.fields
+
+                    valEncoded =
+                        valIds
+                            |> List.map
+                                (\id ->
+                                    Registry.get id registry
+                                        |> Maybe.withDefault Encode.null
+                                )
+                in
+                Encode.list identity
+                    (Encode.int state.submitSeq
+                        :: Encode.int state.lastResolvedSubmitSeq
+                        :: valEncoded
+                    )
+        , buildRequest =
+            \registry ->
+                let
+                    state =
+                        IForm.readState f.stateId registry
+                in
+                if state.submitSeq <= state.lastResolvedSubmitSeq then
+                    IReaction.SkipRequest
+
+                else
+                    case IGroup.readGroup group f.fields registry of
+                        Just clean ->
+                            case toRequest clean of
+                                IRequest.NoRequest ->
+                                    IReaction.SkipRequest
+
+                                IRequest.DispatchRequest task ->
+                                    IReaction.DispatchTask
+                                        (task
+                                            |> Task.map (\r -> targetCodec.encode (Rad.Done r))
+                                            |> Task.onError
+                                                (\e -> Task.succeed (targetCodec.encode (Rad.Failed e)))
+                                        )
+
+                        Nothing ->
+                            IReaction.SkipRequest
+        , writeLoading =
+            \registry ->
+                Registry.insert targetId (targetCodec.encode Rad.Loading) registry
+        , writeResult =
+            \encoded registry ->
+                let
+                    decodedDone =
+                        Decode.decodeValue
+                            (Decode.field "tag" Decode.string
+                                |> Decode.andThen
+                                    (\tag ->
+                                        if tag == "Done" then
+                                            Decode.succeed True
+
+                                        else
+                                            Decode.succeed False
+                                    )
+                            )
+                            encoded
+                            |> Result.withDefault False
+
+                    r1 =
+                        Registry.insert targetId encoded registry
+                in
+                if decodedDone then
+                    advanceSnapshot form r1
+
+                else
+                    r1
+        }
+
+
+advanceSnapshot : Form fields -> Registry -> Registry
+advanceSnapshot (IForm.Form f) registry =
+    let
+        state =
+            IForm.readState f.stateId registry
+
+        snapshotPairs : List ( String, Decode.Value )
+        snapshotPairs =
+            f.members
+                |> List.map
+                    (\member ->
+                        let
+                            id =
+                                memberInputId member
+
+                            current =
+                                Registry.get id registry
+                                    |> Maybe.withDefault (memberInitial member)
+                        in
+                        ( String.fromInt id, current )
+                    )
+
+        newSnapshot =
+            Encode.object snapshotPairs
+
+        newState =
+            { state
+                | snapshot = newSnapshot
+                , lastResolvedSubmitSeq = state.submitSeq
+            }
+    in
+    Registry.insert f.stateId (IForm.stateCodec.encode newState) registry
 
 
 memberReaction : Member -> Maybe (Rad.Reaction model)

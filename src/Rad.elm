@@ -1,6 +1,6 @@
 module Rad exposing
     ( Cell
-    , cellKey, cellId, cellEncodedInitial, cellFromInternal
+    , cellKey, cellId, cellEncodedInitial, cellCodec, cellFromInternal
     , DebouncedCell, withDebounced
     , raw, settled, synced, commit, revert
     , ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation(..), validationCodec, runSyncOnly, validationReactions
@@ -20,7 +20,7 @@ module Rad exposing
 {-| elm-rad — reactive cell DSL.
 
 @docs Cell
-@docs cellKey, cellId, cellEncodedInitial, cellFromInternal
+@docs cellKey, cellId, cellEncodedInitial, cellCodec, cellFromInternal
 @docs DebouncedCell, withDebounced
 @docs raw, settled, synced, commit, revert
 @docs ValidatedCell, withValidated, Validator, sync, async, compose, input, validation, validate, resetValidation, Validation, validationCodec, runSyncOnly, validationReactions
@@ -208,6 +208,13 @@ cellId (Cell c) =
 cellEncodedInitial : Cell a -> Decode.Value
 cellEncodedInitial (Cell c) =
     c.codec.encode c.initial
+
+
+{-| Inspect a cell's codec. For low-level integration; most users won't need it.
+-}
+cellCodec : Cell a -> Codec a
+cellCodec (Cell c) =
+    c.codec
 
 
 {-| Internal helper for builder modules outside `Rad.elm` (`Rad.Form`'s
