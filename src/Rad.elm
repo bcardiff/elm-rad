@@ -48,6 +48,7 @@ import Rad.Internal.Action as IA
 import Rad.Internal.CellBuilder as ICellBuilder exposing (CellBuilder(..))
 import Rad.Internal.Debounced as IDebounced
 import Rad.Internal.Msg as IMsg
+import Rad.Internal.Persist as IPersist
 import Rad.Internal.Reaction as IReaction
 import Rad.Internal.Registry as Registry exposing (Registry)
 import Rad.Internal.Request as IRequest
@@ -266,12 +267,18 @@ with key initial codec (CellBuilder f) =
                 id =
                     parent.nextId
 
+                fullKey =
+                    state.prefix ++ key
+
                 cell =
-                    Cell { id = id, key = state.prefix ++ key, codec = codec, initial = initial }
+                    Cell { id = id, key = fullKey, codec = codec, initial = initial }
+
+                entry =
+                    IPersist.cellEntry { id = id, key = fullKey, codec = codec }
             in
             { nextId = id + 1
             , metas = ( id, codec.encode initial ) :: parent.metas
-            , persist = parent.persist
+            , persist = entry :: parent.persist
             , ctor = parent.ctor cell
             }
         )
