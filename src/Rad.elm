@@ -965,11 +965,19 @@ on source transform (Cell target) =
         }
 
 
-{-| A public alias for the runtime's internal model tuple. Used as the model
+{-| A public alias for the runtime's internal model record. Used as the model
 type of a `Program` so user code does not have to name `Rad.Internal.Registry`.
+
+The `dirtyCounter` field is a monotonic counter bumped on every registry
+mutation so the runtime's debounced-save flow can detect stale timers.
+
 -}
 type alias AppModel model =
-    ( model, Registry, IReaction.ReactionState )
+    { model : model
+    , registry : Registry
+    , reactions : IReaction.ReactionState
+    , dirtyCounter : Int
+    }
 
 
 {-| Configuration for opt-in localStorage persistence. Pass via
@@ -998,6 +1006,47 @@ type alias AppDef view model computed =
     , reactions : model -> computed -> List (Reaction model)
     , persist : Maybe (PersistConfig (Rad.Engine.Msg model))
     }
+
+
+snapshotSchema : CellBuilder model -> List IPersist.PersistEntry
+snapshotSchema (CellBuilder f) =
+    let
+        result =
+            f { nextId = 0, prefix = "" }
+    in
+    result.persist
+
+
+fireSave :
+    Maybe (PersistConfig (Rad.Engine.Msg model))
+    -> Registry
+    -> CellBuilder model
+    -> Cmd (Rad.Engine.Msg model)
+fireSave maybeConfig registry init_ =
+    case maybeConfig of
+        Nothing ->
+            Cmd.none
+
+        Just config ->
+            let
+                schema =
+                    snapshotSchema init_
+
+                cellPairs =
+                    schema
+                        |> List.filterMap
+                            (\entry ->
+                                entry.encode registry
+                                    |> Maybe.map (\blob -> ( entry.key, blob ))
+                            )
+
+                payload =
+                    Encode.object
+                        [ ( "version", Encode.int config.version )
+                        , ( "cells", Encode.object cellPairs )
+                        ]
+            in
+            config.save ( config.key, Encode.encode 0 payload )
 
 
 {-| Run an application. Wraps `Browser.element` so later layers can add
@@ -1069,6 +1118,17 @@ run engine app =
             in
             ( finalReg, finalState, Cmd.batch finalCmds )
     in
+    let
+        scheduleSave : Int -> Cmd (Rad.Engine.Msg model)
+        scheduleSave newDirty =
+            case app.persist of
+                Just _ ->
+                    Process.sleep 500
+                        |> Task.perform (\_ -> IMsg.PersistTimerFired newDirty)
+
+                Nothing ->
+                    Cmd.none
+    in
     Browser.element
         { init =
             \_ ->
@@ -1076,25 +1136,60 @@ run engine app =
                     ( reg1, state1, cmd ) =
                         fireReactions initialRegistry IReaction.emptyState
                 in
-                ( ( model, reg1, state1 ), cmd )
+                ( { model = model
+                  , registry = reg1
+                  , reactions = state1
+                  , dirtyCounter = 0
+                  }
+                , cmd
+                )
         , update =
-            \msg ( m, registry, state ) ->
+            \msg appModel ->
+                let
+                    m =
+                        appModel.model
+
+                    registry =
+                        appModel.registry
+
+                    state =
+                        appModel.reactions
+
+                    dirtyCounter =
+                        appModel.dirtyCounter
+                in
                 case msg of
                     IMsg.ApplyAction action ->
                         let
                             reg1 =
                                 IA.apply action registry
 
-                            ( reg2, state2, cmd ) =
+                            ( reg2, state2, reactionCmd ) =
                                 fireReactions reg1 state
+
+                            newDirty =
+                                dirtyCounter + 1
+
+                            saveCmd =
+                                if IA.isPersistNow action then
+                                    fireSave app.persist reg2 app.init
+
+                                else
+                                    scheduleSave newDirty
                         in
-                        ( ( m, reg2, state2 ), cmd )
+                        ( { model = m
+                          , registry = reg2
+                          , reactions = state2
+                          , dirtyCounter = newDirty
+                          }
+                        , Cmd.batch [ reactionCmd, saveCmd ]
+                        )
 
                     IMsg.ReactionResult i receivedSeq result ->
                         case Dict.get i state.seqs of
                             Just expected ->
                                 if expected /= receivedSeq then
-                                    ( ( m, registry, state ), Cmd.none )
+                                    ( appModel, Cmd.none )
 
                                 else
                                     case result of
@@ -1110,19 +1205,26 @@ run engine app =
                                             in
                                             case maybeReaction of
                                                 Just (IReaction.Reaction r) ->
-                                                    ( ( m, r.writeResult encoded registry, state )
-                                                    , Cmd.none
+                                                    let
+                                                        newDirty =
+                                                            dirtyCounter + 1
+                                                    in
+                                                    ( { appModel
+                                                        | registry = r.writeResult encoded registry
+                                                        , dirtyCounter = newDirty
+                                                      }
+                                                    , scheduleSave newDirty
                                                     )
 
                                                 Nothing ->
-                                                    ( ( m, registry, state ), Cmd.none )
+                                                    ( appModel, Cmd.none )
 
                                         Err _ ->
                                             -- Task Never Value: unreachable.
-                                            ( ( m, registry, state ), Cmd.none )
+                                            ( appModel, Cmd.none )
 
                             Nothing ->
-                                ( ( m, registry, state ), Cmd.none )
+                                ( appModel, Cmd.none )
 
                     IMsg.DebouncedInput dRef encodedValue ->
                         let
@@ -1136,8 +1238,17 @@ run engine app =
 
                             ( reg2, state2, reactionCmd ) =
                                 fireReactions reg1 state
+
+                            newDirty =
+                                dirtyCounter + 1
                         in
-                        ( ( m, reg2, state2 ), Cmd.batch [ timerCmd, reactionCmd ] )
+                        ( { model = m
+                          , registry = reg2
+                          , reactions = state2
+                          , dirtyCounter = newDirty
+                          }
+                        , Cmd.batch [ timerCmd, reactionCmd, scheduleSave newDirty ]
+                        )
 
                     IMsg.DebouncedTimerFire dRef firedSeq ->
                         let
@@ -1146,18 +1257,36 @@ run engine app =
 
                             ( reg2, state2, reactionCmd ) =
                                 fireReactions reg1 state
-                        in
-                        ( ( m, reg2, state2 ), reactionCmd )
 
-                    IMsg.PersistTimerFired _ ->
-                        ( ( m, registry, state ), Cmd.none )
+                            newDirty =
+                                dirtyCounter + 1
+                        in
+                        ( { model = m
+                          , registry = reg2
+                          , reactions = state2
+                          , dirtyCounter = newDirty
+                          }
+                        , Cmd.batch [ reactionCmd, scheduleSave newDirty ]
+                        )
+
+                    IMsg.PersistTimerFired n ->
+                        if n == dirtyCounter then
+                            ( appModel
+                            , fireSave app.persist registry app.init
+                            )
+
+                        else
+                            ( appModel, Cmd.none )
 
                     IMsg.PersistRequested ->
-                        ( ( m, registry, state ), Cmd.none )
+                        ( appModel
+                        , fireSave app.persist registry app.init
+                        )
         , subscriptions = \_ -> Sub.none
         , view =
-            \( m, registry, _ ) ->
-                engine.toHtml registry (app.view m (app.computed m))
+            \appModel ->
+                engine.toHtml appModel.registry
+                    (app.view appModel.model (app.computed appModel.model))
         }
 
 
