@@ -163,6 +163,7 @@ field cell =
     IForm.PlainMember
         { inputId = Rad.cellId cell
         , initial = Rad.cellEncodedInitial cell
+        , inputKey = Rad.cellKey cell
         }
 
 
@@ -181,6 +182,7 @@ validatedField vcell =
         , activationSeqId = c.activationSeqId
         , initial = c.codec.encode c.initial
         , reactionGuts = Rad.internalValidationReactionGuts vcell
+        , inputKey = c.key
         }
 
 
@@ -208,7 +210,7 @@ dirty (IForm.Form f) =
                             case
                                 Decode.decodeValue
                                     (Decode.field
-                                        (String.fromInt (memberInputId member))
+                                        (memberInputKey member)
                                         Decode.value
                                     )
                                     state.snapshot
@@ -250,6 +252,16 @@ memberInitial member =
 
         IForm.ValidatedMember m ->
             m.initial
+
+
+memberInputKey : Member -> String
+memberInputKey member =
+    case member of
+        IForm.PlainMember m ->
+            m.inputKey
+
+        IForm.ValidatedMember m ->
+            m.inputKey
 
 
 {-| Bumps `submitSeq` and dispatches `validate` to each ValidatedMember.
@@ -308,7 +320,7 @@ reset (IForm.Form f) =
                     else
                         case
                             Decode.decodeValue
-                                (Decode.field (String.fromInt (memberInputId member)) Decode.value)
+                                (Decode.field (memberInputKey member) Decode.value)
                                 state.snapshot
                         of
                             Ok v ->
@@ -550,14 +562,11 @@ advanceSnapshot (IForm.Form f) registry =
                 |> List.map
                     (\member ->
                         let
-                            id =
-                                memberInputId member
-
                             current =
-                                Registry.get id registry
+                                Registry.get (memberInputId member) registry
                                     |> Maybe.withDefault (memberInitial member)
                         in
-                        ( String.fromInt id, current )
+                        ( memberInputKey member, current )
                     )
 
         newSnapshot =

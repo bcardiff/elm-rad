@@ -72,6 +72,7 @@ type Member
     = PlainMember
         { inputId : Int
         , initial : Decode.Value
+        , inputKey : String
         }
     | ValidatedMember
         { inputId : Int
@@ -79,6 +80,7 @@ type Member
         , activationSeqId : Int
         , initial : Decode.Value
         , reactionGuts : IReaction.Guts
+        , inputKey : String
         }
 
 

@@ -72,7 +72,7 @@ suite =
                         Rad.runBuilder init
 
                     snapshot =
-                        Encode.object [ ( String.fromInt (Rad.cellId m.n), Encode.int 99 ) ]
+                        Encode.object [ ( Rad.cellKey m.n, Encode.int 99 ) ]
 
                     newState =
                         { snapshot = snapshot, submitSeq = 0, lastResolvedSubmitSeq = 0 }
