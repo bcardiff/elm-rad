@@ -1148,6 +1148,12 @@ run engine app =
                                 fireReactions reg1 state
                         in
                         ( ( m, reg2, state2 ), reactionCmd )
+
+                    IMsg.PersistTimerFired _ ->
+                        ( ( m, registry, state ), Cmd.none )
+
+                    IMsg.PersistRequested ->
+                        ( ( m, registry, state ), Cmd.none )
         , subscriptions = \_ -> Sub.none
         , view =
             \( m, registry, _ ) ->
