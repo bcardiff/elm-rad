@@ -301,7 +301,7 @@ type alias DebouncedCell a =
 (raw, settled, and a per-cell timer sequence counter) seeded from `initial`.
 -}
 withDebounced : String -> Float -> a -> Codec a -> CellBuilder (DebouncedCell a -> rest) -> CellBuilder rest
-withDebounced _ delayMs initial codec (CellBuilder f) =
+withDebounced key delayMs initial codec (CellBuilder f) =
     CellBuilder
         (\state ->
             let
@@ -325,6 +325,7 @@ withDebounced _ delayMs initial codec (CellBuilder f) =
                         , codec = codec
                         , delayMs = delayMs
                         , initial = initial
+                        , key = state.prefix ++ key
                         }
 
                 encodedInitial =

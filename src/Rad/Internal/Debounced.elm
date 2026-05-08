@@ -30,6 +30,7 @@ type alias Core a =
     , codec : { encode : a -> Decode.Value, decode : Decode.Decoder a }
     , delayMs : Float
     , initial : a
+    , key : String
     }
 
 
