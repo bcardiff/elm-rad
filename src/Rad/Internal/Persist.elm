@@ -1,4 +1,10 @@
-module Rad.Internal.Persist exposing (PersistEntry, cellEntry, debouncedEntry, validatedEntry)
+module Rad.Internal.Persist exposing
+    ( PersistEntry
+    , cellEntry
+    , debouncedEntry
+    , restore
+    , validatedEntry
+    )
 
 {-| Internal: per-cell persistence schema entry. Each cell-building primitive
 (`with`, `withDebounced`, `withValidated`, `Form.withState`) appends one entry
@@ -9,6 +15,7 @@ collaboration between builders and the runtime.
 
 -}
 
+import Dict
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Rad.Internal.Registry as Registry exposing (Registry)
@@ -247,3 +254,89 @@ validatedEntry r =
                         Err e ->
                             Err (Decode.errorToString e)
     }
+
+
+{-| Attempt to restore a Registry from a stored JSON envelope (typically
+read from localStorage and passed as flags). Strict policy: any failure
+(version mismatch, malformed JSON, decode error, missing-cell with
+non-null-tolerant codec) returns the initial registry unchanged.
+
+Accepts flags as either a JSON value (already parsed) or a string (will
+parse via Json.Decode.decodeString). `null` flags = no restore.
+
+-}
+restore :
+    { key : String, version : Int }
+    -> List PersistEntry
+    -> Registry
+    -> Encode.Value
+    -> Registry
+restore config schema initialRegistry flags =
+    case attemptRestore config schema initialRegistry flags of
+        Ok r ->
+            r
+
+        Err _ ->
+            initialRegistry
+
+
+attemptRestore :
+    { key : String, version : Int }
+    -> List PersistEntry
+    -> Registry
+    -> Encode.Value
+    -> Result String Registry
+attemptRestore config schema initialRegistry flags =
+    let
+        envelope =
+            -- If the flags arrived as a JSON string (from localStorage), parse it.
+            -- Otherwise, treat the value as the envelope directly.
+            case Decode.decodeValue Decode.string flags of
+                Ok rawString ->
+                    case Decode.decodeString Decode.value rawString of
+                        Ok parsed ->
+                            parsed
+
+                        Err _ ->
+                            flags
+
+                Err _ ->
+                    flags
+    in
+    if Decode.decodeValue (Decode.null ()) envelope == Ok () then
+        Ok initialRegistry
+
+    else
+        case
+            Decode.decodeValue
+                (Decode.map2 Tuple.pair
+                    (Decode.field "version" Decode.int)
+                    (Decode.field "cells" (Decode.dict Decode.value))
+                )
+                envelope
+        of
+            Err e ->
+                Err (Decode.errorToString e)
+
+            Ok ( storedVersion, cellBlobs ) ->
+                if storedVersion /= config.version then
+                    Err "version mismatch"
+
+                else
+                    schema
+                        |> List.foldl
+                            (\entry acc ->
+                                case acc of
+                                    Err e ->
+                                        Err e
+
+                                    Ok r ->
+                                        let
+                                            blob =
+                                                cellBlobs
+                                                    |> Dict.get entry.key
+                                                    |> Maybe.withDefault Encode.null
+                                        in
+                                        entry.decode blob r
+                            )
+                            (Ok initialRegistry)
