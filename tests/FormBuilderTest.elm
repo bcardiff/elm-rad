@@ -5,6 +5,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Rad exposing (build)
 import Rad.Form as Form
+import Rad.Internal.CellBuilder as ICellBuilder
 import Rad.Internal.Registry as Registry
 import Test exposing (..)
 
@@ -89,4 +90,22 @@ suite =
                             [ Form.field model_.n, Form.validatedField model_.v ]
                 in
                 Expect.equal 1 (List.length (Form.reactions f))
+        , test "Form.withState appends a persist schema entry with the form's key" <|
+            \_ ->
+                let
+                    initF =
+                        build Model |> Form.withState "profile-form"
+
+                    (ICellBuilder.CellBuilder f) =
+                        initF
+
+                    result =
+                        f { nextId = 0, prefix = "" }
+                in
+                case result.persist of
+                    [ entry ] ->
+                        Expect.equal ( "profile-form", "cell" ) ( entry.key, entry.typeTag )
+
+                    _ ->
+                        Expect.fail "expected exactly one persist entry"
         ]

@@ -67,6 +67,7 @@ import Rad exposing (Cell, CellBuilder, Codec)
 import Rad.Internal.Action as IAction exposing (Action(..))
 import Rad.Internal.CellBuilder exposing (CellBuilder(..))
 import Rad.Internal.Form as IForm
+import Rad.Internal.Persist as IPersist
 import Rad.Internal.Reaction as IReaction
 import Rad.Internal.Registry as Registry exposing (Registry)
 import Rad.Internal.Request as IRequest
@@ -121,17 +122,23 @@ withState key (CellBuilder f) =
                 id =
                     parent.nextId
 
+                fullKey =
+                    bs.prefix ++ key
+
                 cell =
                     Rad.cellFromInternal
                         { id = id
-                        , key = bs.prefix ++ key
+                        , key = fullKey
                         , codec = stateCodec
                         , initial = IForm.initialState
                         }
+
+                entry =
+                    IPersist.cellEntry { id = id, key = fullKey, codec = stateCodec }
             in
             { nextId = id + 1
             , metas = ( id, stateCodec.encode IForm.initialState ) :: parent.metas
-            , persist = parent.persist
+            , persist = entry :: parent.persist
             , ctor = parent.ctor cell
             }
         )
