@@ -857,6 +857,34 @@ mapField    : String -> (Json.Value -> Json.Value) -> Json.Value -> Result Strin
 
 ---
 
+### Implementation notes
+
+Recorded here so future contributors don't re-debate them.
+
+1. **localStorage only; one outgoing port + ~5 lines of JS.** Restore is one-shot at boot via `flags : Json.Decode.Value`. Save is a port the user subscribes to. No restore port; no `Sub`-based storage events.
+
+2. **Schema-driven save/restore.** `BuildResult` carries a `List PersistEntry` populated by `with`/`withDebounced`/`withValidated`/`Form.withState`. Runtime walks the list to encode (save) and decode (restore). The schema is rebuilt fresh on each save by re-running `app.init`'s lazy recipe (cheap; `O(cells)` record construction).
+
+3. **Strict restore.** Any failure (version mismatch, malformed JSON, decode error, missing-cell with non-null-tolerant codec) discards the whole restore and falls back to init defaults. No half-restored state.
+
+4. **Missing-cell rule is codec-driven.** Adding a non-null-tolerant cell after deploy invalidates the saved state (strict-fail). Adding a null-tolerant codec silently graceful-restores. This puts schema-drift policy in the user's hands; migrations cover the harder cases later.
+
+5. **`Form.stateCodec` always tolerates null.** Adding a new form to an app post-deploy doesn't blow up persistence — missing form-state cells transparently restore as fresh forms.
+
+6. **Crash recovery via `IReaction.Guts.inFlight : Registry -> Bool`.** Reactions self-report whether their target is in-flight; runtime re-fires those after restore. Recovery dispatches are indistinguishable from normal trigger-change firings.
+
+7. **Form snapshot keyed by `cell.key` strings.** Runtime cell IDs are unstable across releases (any new `with` shifts subsequent IDs). Snapshot keys are now the namespaced persistence keys Layer 6 stamps on each cell.
+
+8. **`persistNow` is a new `Action` constructor.** `Action model` becomes a sum type with `Action (Registry -> Registry) | PersistNow`. The runtime detects `PersistNow` in `update` and dispatches an immediate save, bypassing the 500ms debounce.
+
+9. **Save debounce uses a dirty counter, not a Process.sleep state machine.** Each registry mutation bumps the counter and dispatches a `Process.sleep 500` Task whose payload is the current counter. On firing, the runtime checks the counter is still the same — if not, the firing is stale (a fresher mutation has already scheduled another timer). Same latest-wins pattern as Layer 3's `DebouncedCell`.
+
+10. **`AppModel` is now a record, not a tuple.** Layer 7 added a fourth slot (dirtyCounter) to `AppModel`, but Elm tuples are limited to arity 3. The shape changed to a record: `{ model, registry, reactions, dirtyCounter }`. User-facing impact is minimal — `AppModel` is typically only referenced as a type parameter to `Program`.
+
+11. **No migrations in MVP.** Version mismatch ≡ discard. Migrations land in a future Layer.
+
+---
+
 ## The App Definition
 
 ```elm
