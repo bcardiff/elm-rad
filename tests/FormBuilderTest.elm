@@ -108,4 +108,18 @@ suite =
 
                     _ ->
                         Expect.fail "expected exactly one persist entry"
+        , test "Form.stateCodec.decode tolerates null and produces initialState" <|
+            \_ ->
+                let
+                    decoded =
+                        Decode.decodeValue Form.stateCodec.decode Encode.null
+                in
+                Expect.equal
+                    (Ok
+                        { snapshot = Encode.null
+                        , submitSeq = 0
+                        , lastResolvedSubmitSeq = 0
+                        }
+                    )
+                    decoded
         ]

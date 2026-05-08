@@ -40,10 +40,13 @@ stateCodec =
                 , ( "lastResolvedSubmitSeq", Encode.int s.lastResolvedSubmitSeq )
                 ]
     , decode =
-        Decode.map3 State
-            (Decode.field "snapshot" Decode.value)
-            (Decode.field "submitSeq" Decode.int)
-            (Decode.field "lastResolvedSubmitSeq" Decode.int)
+        Decode.oneOf
+            [ Decode.null initialState
+            , Decode.map3 State
+                (Decode.field "snapshot" Decode.value)
+                (Decode.field "submitSeq" Decode.int)
+                (Decode.field "lastResolvedSubmitSeq" Decode.int)
+            ]
     }
 
 
