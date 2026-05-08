@@ -520,7 +520,7 @@ withValidated :
     -> IValidated.Validator err a
     -> CellBuilder (ValidatedCell err a -> rest)
     -> CellBuilder rest
-withValidated _ initial codec errCodec validator (CellBuilder f) =
+withValidated key initial codec errCodec validator (CellBuilder f) =
     CellBuilder
         (\state ->
             let
@@ -548,6 +548,7 @@ withValidated _ initial codec errCodec validator (CellBuilder f) =
                         , errCodec = errCodec
                         , validator = validator
                         , initial = initial
+                        , key = state.prefix ++ key
                         }
 
                 encodedInitial =

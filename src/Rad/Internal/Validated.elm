@@ -39,6 +39,7 @@ type alias Core err a =
     , errCodec : { encode : err -> Decode.Value, decode : Decode.Decoder err }
     , validator : Validator err a
     , initial : a
+    , key : String
     }
 
 
