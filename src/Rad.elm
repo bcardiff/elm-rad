@@ -1117,6 +1117,44 @@ run engine app =
                         (List.indexedMap Tuple.pair reactions)
             in
             ( finalReg, finalState, Cmd.batch finalCmds )
+
+        recoverInFlight : Registry -> ( IReaction.ReactionState, Cmd (Rad.Engine.Msg model) )
+        recoverInFlight registry =
+            let
+                reactions =
+                    app.reactions model (app.computed model)
+
+                step ( i, IReaction.Reaction r ) ( st, cmds ) =
+                    let
+                        currentTrigger =
+                            r.readTrigger registry
+
+                        st1 =
+                            { st | triggers = Dict.insert i currentTrigger st.triggers }
+                    in
+                    if r.inFlight registry then
+                        case r.buildRequest registry of
+                            IReaction.SkipRequest ->
+                                ( st1, cmds )
+
+                            IReaction.DispatchTask task ->
+                                let
+                                    newSeq =
+                                        1
+                                in
+                                ( { st1 | seqs = Dict.insert i newSeq st1.seqs }
+                                , Task.attempt (IMsg.ReactionResult i newSeq) task :: cmds
+                                )
+
+                    else
+                        ( st1, cmds )
+
+                ( finalState, finalCmds ) =
+                    List.foldl step
+                        ( IReaction.emptyState, [] )
+                        (List.indexedMap Tuple.pair reactions)
+            in
+            ( finalState, Cmd.batch finalCmds )
     in
     let
         scheduleSave : Int -> Cmd (Rad.Engine.Msg model)
@@ -1133,23 +1171,28 @@ run engine app =
         { init =
             \flags ->
                 let
-                    registry =
+                    ( registry, ( state1, cmd ) ) =
                         case app.persist of
                             Just config ->
-                                IPersist.restore
-                                    { key = config.key, version = config.version }
-                                    (snapshotSchema app.init)
-                                    initialRegistry
-                                    flags
+                                let
+                                    restored =
+                                        IPersist.restore
+                                            { key = config.key, version = config.version }
+                                            (snapshotSchema app.init)
+                                            initialRegistry
+                                            flags
+                                in
+                                ( restored, recoverInFlight restored )
 
                             Nothing ->
-                                initialRegistry
-
-                    ( reg1, state1, cmd ) =
-                        fireReactions registry IReaction.emptyState
+                                let
+                                    ( reg1, st1, c1 ) =
+                                        fireReactions initialRegistry IReaction.emptyState
+                                in
+                                ( reg1, ( st1, c1 ) )
                 in
                 ( { model = model
-                  , registry = reg1
+                  , registry = registry
                   , reactions = state1
                   , dirtyCounter = 0
                   }
