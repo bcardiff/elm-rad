@@ -152,4 +152,26 @@ suite =
                 Expect.equal
                     (Just (Encode.string "init-value"))
                     (Registry.get 0 decoded)
+        , test "ValidatedCell schema entry has correct key + type tag" <|
+            \_ ->
+                let
+                    initV =
+                        build (\v -> { v = v })
+                            |> Rad.withValidated "name" "" Rad.stringCodec Rad.stringCodec (Rad.sync Ok)
+
+                    (ICellBuilder.CellBuilder f) =
+                        initV
+
+                    result =
+                        f { nextId = 0, prefix = "" }
+
+                    entry =
+                        case result.persist of
+                            [ e ] ->
+                                e
+
+                            _ ->
+                                Debug.todo "expected one entry"
+                in
+                Expect.equal ( "name", "validated" ) ( entry.key, entry.typeTag )
         ]

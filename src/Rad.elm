@@ -575,6 +575,17 @@ withValidated key initial codec errCodec validator (CellBuilder f) =
 
                 encodedDormant =
                     valCodec.encode Dormant
+
+                entry =
+                    IPersist.validatedEntry
+                        { inputId = inputId
+                        , validationId = validationId
+                        , activationSeqId = activationSeqId
+                        , key = state.prefix ++ key
+                        , codec = codec
+                        , validationCodec = valCodec
+                        , dormantEncoded = encodedDormant
+                        }
             in
             { nextId = parent.nextId + 3
             , metas =
@@ -582,7 +593,7 @@ withValidated key initial codec errCodec validator (CellBuilder f) =
                     :: ( validationId, encodedDormant )
                     :: ( inputId, encodedInitial )
                     :: parent.metas
-            , persist = parent.persist
+            , persist = entry :: parent.persist
             , ctor = parent.ctor cell
             }
         )
