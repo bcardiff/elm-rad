@@ -339,6 +339,15 @@ withDebounced key delayMs initial codec (CellBuilder f) =
 
                 encodedInitial =
                     codec.encode initial
+
+                entry =
+                    IPersist.debouncedEntry
+                        { rawId = rawId
+                        , settledId = settledId
+                        , timerSeqId = timerSeqId
+                        , key = state.prefix ++ key
+                        , codec = codec
+                        }
             in
             { nextId = parent.nextId + 3
             , metas =
@@ -346,7 +355,7 @@ withDebounced key delayMs initial codec (CellBuilder f) =
                     :: ( settledId, encodedInitial )
                     :: ( rawId, encodedInitial )
                     :: parent.metas
-            , persist = parent.persist
+            , persist = entry :: parent.persist
             , ctor = parent.ctor cell
             }
         )

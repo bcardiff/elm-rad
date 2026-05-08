@@ -1,4 +1,4 @@
-module Rad.Internal.Persist exposing (PersistEntry, cellEntry)
+module Rad.Internal.Persist exposing (PersistEntry, cellEntry, debouncedEntry)
 
 {-| Internal: per-cell persistence schema entry. Each cell-building primitive
 (`with`, `withDebounced`, `withValidated`, `Form.withState`) appends one entry
@@ -78,6 +78,85 @@ cellEntry r =
                     case Decode.decodeValue r.codec.decode blob of
                         Ok value ->
                             Ok (Registry.insert r.id (r.codec.encode value) registry)
+
+                        Err e ->
+                            Err (Decode.errorToString e)
+    }
+
+
+{-| Build a PersistEntry for a `DebouncedCell a`. Encodes the three slots
+(raw, settled, timerSeq) as one blob.
+
+Format: `{"type": "debounced", "raw": <a>, "settled": <a>, "timerSeq": <int>}`.
+
+Missing-cell fallback: tries to decode null via the value codec; if accepted,
+initializes raw=settled=null-decoded, timerSeq=0.
+
+-}
+debouncedEntry :
+    { rawId : Int
+    , settledId : Int
+    , timerSeqId : Int
+    , key : String
+    , codec : { encode : a -> Encode.Value, decode : Decode.Decoder a }
+    }
+    -> PersistEntry
+debouncedEntry r =
+    { key = r.key
+    , typeTag = "debounced"
+    , encode =
+        \registry ->
+            Maybe.map3
+                (\raw settled timerSeq ->
+                    Encode.object
+                        [ ( "type", Encode.string "debounced" )
+                        , ( "raw", raw )
+                        , ( "settled", settled )
+                        , ( "timerSeq", timerSeq )
+                        ]
+                )
+                (Registry.get r.rawId registry)
+                (Registry.get r.settledId registry)
+                (Registry.get r.timerSeqId registry)
+    , decode =
+        \blob registry ->
+            case
+                Decode.decodeValue
+                    (Decode.field "type" Decode.string
+                        |> Decode.andThen
+                            (\tag ->
+                                if tag == "debounced" then
+                                    Decode.map3
+                                        (\raw settled timerSeq -> ( raw, settled, timerSeq ))
+                                        (Decode.field "raw" r.codec.decode)
+                                        (Decode.field "settled" r.codec.decode)
+                                        (Decode.field "timerSeq" Decode.int)
+
+                                else
+                                    Decode.fail ("expected type=debounced, got " ++ tag)
+                            )
+                    )
+                    blob
+            of
+                Ok ( raw, settled, timerSeq ) ->
+                    Ok
+                        (registry
+                            |> Registry.insert r.rawId (r.codec.encode raw)
+                            |> Registry.insert r.settledId (r.codec.encode settled)
+                            |> Registry.insert r.timerSeqId (Encode.int timerSeq)
+                        )
+
+                Err _ ->
+                    -- Fallback: decode null via value codec; if accepted,
+                    -- raw = settled = null-decoded, timerSeq = 0.
+                    case Decode.decodeValue r.codec.decode blob of
+                        Ok value ->
+                            Ok
+                                (registry
+                                    |> Registry.insert r.rawId (r.codec.encode value)
+                                    |> Registry.insert r.settledId (r.codec.encode value)
+                                    |> Registry.insert r.timerSeqId (Encode.int 0)
+                                )
 
                         Err e ->
                             Err (Decode.errorToString e)

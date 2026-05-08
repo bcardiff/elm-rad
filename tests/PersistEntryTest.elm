@@ -86,4 +86,70 @@ suite =
 
                     Err e ->
                         Expect.fail ("decode failed: " ++ e)
+        , test "DebouncedCell schema entry has correct key + type tag" <|
+            \_ ->
+                let
+                    initD =
+                        build (\d -> { d = d })
+                            |> Rad.withDebounced "search" 500 "" Rad.stringCodec
+
+                    (ICellBuilder.CellBuilder f) =
+                        initD
+
+                    result =
+                        f { nextId = 0, prefix = "" }
+
+                    entry =
+                        case result.persist of
+                            [ e ] ->
+                                e
+
+                            _ ->
+                                Debug.todo "expected one entry"
+                in
+                Expect.equal ( "search", "debounced" ) ( entry.key, entry.typeTag )
+        , test "DebouncedCell encode/decode round-trips" <|
+            \_ ->
+                let
+                    initD =
+                        build (\d -> { d = d })
+                            |> Rad.withDebounced "search" 500 "init-value" Rad.stringCodec
+
+                    (ICellBuilder.CellBuilder f) =
+                        initD
+
+                    result =
+                        f { nextId = 0, prefix = "" }
+
+                    initRegistry =
+                        result.metas
+                            |> List.foldl (\( id, v ) -> Registry.insert id v) Registry.empty
+
+                    entry =
+                        case result.persist of
+                            [ e ] ->
+                                e
+
+                            _ ->
+                                Debug.todo "expected one entry"
+
+                    blob =
+                        case entry.encode initRegistry of
+                            Just b ->
+                                b
+
+                            Nothing ->
+                                Debug.todo "encode failed"
+
+                    decoded =
+                        case entry.decode blob Registry.empty of
+                            Ok r ->
+                                r
+
+                            Err e ->
+                                Debug.todo ("decode failed: " ++ e)
+                in
+                Expect.equal
+                    (Just (Encode.string "init-value"))
+                    (Registry.get 0 decoded)
         ]
