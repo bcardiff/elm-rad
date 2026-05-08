@@ -29,6 +29,7 @@ type Reaction model
         , buildRequest : Registry -> InternalRequest
         , writeLoading : Registry -> Registry
         , writeResult : Encode.Value -> Registry -> Registry
+        , inFlight : Registry -> Bool
         }
 
 
@@ -69,6 +70,7 @@ type alias Guts =
     , buildRequest : Registry -> InternalRequest
     , writeLoading : Registry -> Registry
     , writeResult : Encode.Value -> Registry -> Registry
+    , inFlight : Registry -> Bool
     }
 
 

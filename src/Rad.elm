@@ -907,6 +907,19 @@ on source transform (Cell target) =
         , writeResult =
             \encoded registry ->
                 Registry.insert target.id encoded registry
+        , inFlight =
+            \registry ->
+                case Registry.get target.id registry of
+                    Just v ->
+                        case Decode.decodeValue (Decode.field "tag" Decode.string) v of
+                            Ok "Loading" ->
+                                True
+
+                            _ ->
+                                False
+
+                    Nothing ->
+                        False
         }
 
 
@@ -1241,6 +1254,19 @@ internalValidationReactionGuts vcell =
     , writeResult =
         \encoded registry ->
             Registry.insert c.validationId encoded registry
+    , inFlight =
+        \registry ->
+            case Registry.get c.validationId registry of
+                Just v ->
+                    case Decode.decodeValue (Decode.field "tag" Decode.string) v of
+                        Ok "Checking" ->
+                            True
+
+                        _ ->
+                            False
+
+                Nothing ->
+                    False
     }
 
 

@@ -434,6 +434,25 @@ onSubmit form group toRequest targetCell =
 
                 else
                     r1
+        , inFlight =
+            \registry ->
+                let
+                    state =
+                        IForm.readState f.stateId registry
+                in
+                (state.submitSeq > state.lastResolvedSubmitSeq)
+                    && (case Registry.get targetId registry of
+                            Just v ->
+                                case Decode.decodeValue (Decode.field "tag" Decode.string) v of
+                                    Ok "Loading" ->
+                                        True
+
+                                    _ ->
+                                        False
+
+                            Nothing ->
+                                False
+                       )
         }
 
 
@@ -504,6 +523,13 @@ onValid form group toAction =
 
                     Nothing ->
                         registry
+        , inFlight =
+            \registry ->
+                let
+                    state =
+                        IForm.readState f.stateId registry
+                in
+                state.submitSeq > state.lastResolvedSubmitSeq
         }
 
 
