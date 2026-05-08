@@ -86,6 +86,7 @@ app =
                 )
                 model.user
             ]
+    , persist = Nothing
     }
 
 
@@ -105,6 +106,6 @@ renderUser r =
             text (u.login ++ " — " ++ u.bio)
 
 
-main : Program () (AppModel Model) (Msg Model)
+main : Program Decode.Value (AppModel Model) (Msg Model)
 main =
     run simpleViewEngine app

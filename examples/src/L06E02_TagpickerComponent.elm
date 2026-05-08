@@ -131,9 +131,10 @@ app =
         \model _ ->
             include categoryPicker model.category
                 ++ include tagPickerInstance model.tags
+    , persist = Nothing
     }
 
 
-main : Program () (AppModel Model) (Msg Model)
+main : Program Decode.Value (AppModel Model) (Msg Model)
 main =
     run simpleViewEngine app

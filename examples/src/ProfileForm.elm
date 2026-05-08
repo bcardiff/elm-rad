@@ -129,6 +129,7 @@ app =
                         (\( _, _ ) -> noRequest)
                         model.submitResult
                    ]
+    , persist = Nothing
     }
 
 
@@ -151,6 +152,6 @@ renderStatusHint status =
             text "Submitting..."
 
 
-main : Program () (AppModel Model) (Msg Model)
+main : Program Decode.Value (AppModel Model) (Msg Model)
 main =
     run simpleViewEngine app

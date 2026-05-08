@@ -1,5 +1,6 @@
 module WizardStep exposing (main)
 
+import Json.Decode
 import Rad
     exposing
         ( AppDef
@@ -72,6 +73,7 @@ app =
                         (Form.validators1 .name)
                         (\_ -> modify model.step (\n -> n + 1))
                    ]
+    , persist = Nothing
     }
 
 
@@ -91,6 +93,6 @@ renderHint status =
             text ""
 
 
-main : Program () (AppModel Model) (Msg Model)
+main : Program Json.Decode.Value (AppModel Model) (Msg Model)
 main =
     run simpleViewEngine app

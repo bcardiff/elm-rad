@@ -1,5 +1,6 @@
 module L03E01_DebounceEcho exposing (main)
 
+import Json.Decode
 import Rad
     exposing
         ( AppDef
@@ -57,9 +58,10 @@ app =
                 , button { label = "Revert", onClick = revert model.text }
                 ]
     , reactions = \_ _ -> []
+    , persist = Nothing
     }
 
 
-main : Program () (AppModel Model) (Msg Model)
+main : Program Json.Decode.Value (AppModel Model) (Msg Model)
 main =
     run simpleViewEngine app

@@ -66,6 +66,7 @@ app =
                 (\_ -> Http.httpGet prodHandler "/api/joke" jokeDecoder)
                 model.joke
             ]
+    , persist = Nothing
     }
 
 
@@ -85,6 +86,6 @@ renderJoke r =
             text j.text
 
 
-main : Program () (AppModel Model) (Msg Model)
+main : Program Decode.Value (AppModel Model) (Msg Model)
 main =
     run simpleViewEngine app

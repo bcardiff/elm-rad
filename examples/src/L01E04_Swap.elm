@@ -1,5 +1,6 @@
 module L01E04_Swap exposing (main)
 
+import Json.Decode
 import Rad exposing (AppDef, AppModel, Cell, batch, build, copy, run, stringCodec, toSource, with)
 import Rad.Engine exposing (Msg)
 import SimpleView exposing (SimpleView, button, col, input, simpleViewEngine)
@@ -36,9 +37,10 @@ app =
                     }
                 ]
     , reactions = \_ _ -> []
+    , persist = Nothing
     }
 
 
-main : Program () (AppModel Model) (Msg Model)
+main : Program Json.Decode.Value (AppModel Model) (Msg Model)
 main =
     run simpleViewEngine app

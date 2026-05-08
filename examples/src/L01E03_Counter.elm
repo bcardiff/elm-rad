@@ -1,5 +1,6 @@
 module L01E03_Counter exposing (main)
 
+import Json.Decode
 import Rad exposing (AppDef, AppModel, Cell, build, intCodec, modify, run, set, toSource, with)
 import Rad.Engine exposing (Msg)
 import SimpleView exposing (SimpleView, button, col, simpleViewEngine, text, watch)
@@ -22,9 +23,10 @@ app =
                 , button { label = "reset", onClick = set model.n 0 }
                 ]
     , reactions = \_ _ -> []
+    , persist = Nothing
     }
 
 
-main : Program () (AppModel Model) (Msg Model)
+main : Program Json.Decode.Value (AppModel Model) (Msg Model)
 main =
     run simpleViewEngine app

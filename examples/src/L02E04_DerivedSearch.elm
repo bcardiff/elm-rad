@@ -91,6 +91,7 @@ app =
                 )
                 model.results
             ]
+    , persist = Nothing
     }
 
 
@@ -110,6 +111,6 @@ renderResults r =
             col (List.map (\m -> text (" • " ++ m.label)) matches)
 
 
-main : Program () (AppModel Model) (Msg Model)
+main : Program Decode.Value (AppModel Model) (Msg Model)
 main =
     run simpleViewEngine app

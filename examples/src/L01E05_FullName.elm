@@ -1,5 +1,6 @@
 module L01E05_FullName exposing (main)
 
+import Json.Decode
 import Rad exposing (AppDef, AppModel, Cell, Source, build, derive, run, stringCodec, toSource, with)
 import Rad.Engine exposing (Msg)
 import Rad.Read as Read
@@ -39,9 +40,10 @@ app =
                 , watch c.full (\name -> text ("Full name: " ++ name))
                 ]
     , reactions = \_ _ -> []
+    , persist = Nothing
     }
 
 
-main : Program () (AppModel Model) (Msg Model)
+main : Program Json.Decode.Value (AppModel Model) (Msg Model)
 main =
     run simpleViewEngine app

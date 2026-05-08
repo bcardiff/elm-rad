@@ -1,5 +1,6 @@
 module L04E01_RequiredName exposing (main)
 
+import Json.Decode
 import Rad
     exposing
         ( AppDef
@@ -53,6 +54,7 @@ app =
                 ]
     , reactions =
         \model _ -> validationReactions model.name
+    , persist = Nothing
     }
 
 
@@ -72,6 +74,6 @@ renderValidation v =
             text ("× " ++ String.join ", " errs)
 
 
-main : Program () (AppModel Model) (Msg Model)
+main : Program Json.Decode.Value (AppModel Model) (Msg Model)
 main =
     run simpleViewEngine app

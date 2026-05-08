@@ -1,5 +1,6 @@
 module L06E01_CounterComponent exposing (main)
 
+import Json.Decode
 import Rad
     exposing
         ( AppDef
@@ -74,9 +75,10 @@ app =
         \model _ ->
             include downloadsCounter model.downloads
                 ++ include scaleCounter model.scale
+    , persist = Nothing
     }
 
 
-main : Program () (AppModel Model) (Msg Model)
+main : Program Json.Decode.Value (AppModel Model) (Msg Model)
 main =
     run simpleViewEngine app

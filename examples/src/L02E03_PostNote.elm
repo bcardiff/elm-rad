@@ -143,6 +143,7 @@ app =
                 )
                 model.note
             ]
+    , persist = Nothing
     }
 
 
@@ -165,6 +166,6 @@ renderNote r =
             text ("saved id=" ++ String.fromInt n.id ++ " echoed=" ++ n.echoed)
 
 
-main : Program () (AppModel Model) (Msg Model)
+main : Program Decode.Value (AppModel Model) (Msg Model)
 main =
     run simpleViewEngine app

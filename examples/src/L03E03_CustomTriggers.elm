@@ -1,5 +1,6 @@
 module L03E03_CustomTriggers exposing (main)
 
+import Json.Decode
 import Rad
     exposing
         ( AppDef
@@ -50,9 +51,10 @@ app =
                 , watch (Rad.settled model.text) (\s -> text ("shared settled: \"" ++ s ++ "\""))
                 ]
     , reactions = \_ _ -> []
+    , persist = Nothing
     }
 
 
-main : Program () (AppModel Model) (Msg Model)
+main : Program Json.Decode.Value (AppModel Model) (Msg Model)
 main =
     run simpleViewEngine app
