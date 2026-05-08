@@ -1131,10 +1131,22 @@ run engine app =
     in
     Browser.element
         { init =
-            \_ ->
+            \flags ->
                 let
+                    registry =
+                        case app.persist of
+                            Just config ->
+                                IPersist.restore
+                                    { key = config.key, version = config.version }
+                                    (snapshotSchema app.init)
+                                    initialRegistry
+                                    flags
+
+                            Nothing ->
+                                initialRegistry
+
                     ( reg1, state1, cmd ) =
-                        fireReactions initialRegistry IReaction.emptyState
+                        fireReactions registry IReaction.emptyState
                 in
                 ( { model = model
                   , registry = reg1
