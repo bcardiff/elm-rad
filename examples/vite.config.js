@@ -30,6 +30,7 @@ export default defineConfig({
         "L05E02-wizard-step": resolve(__dirname, "L05E02-wizard-step.html"),
         "L06E01-counter-component": resolve(__dirname, "L06E01-counter-component.html"),
         "L06E02-tagpicker-component": resolve(__dirname, "L06E02-tagpicker-component.html"),
+        "L07E01-persist-counter": resolve(__dirname, "L07E01-persist-counter.html"),
       },
     },
   },

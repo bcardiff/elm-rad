@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>L07E01 persist-counter</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import { Elm } from "./src/L07E01_PersistCounter.elm";
+      const stored = localStorage.getItem("L07E01-persist-counter");
+      const app = Elm.L07E01_PersistCounter.init({
+        node: document.getElementById("app"),
+        flags: stored,
+      });
+      app.ports.persistSave.subscribe(([key, json]) =>
+        localStorage.setItem(key, json)
+      );
+    </script>
+  </body>
+</html>
