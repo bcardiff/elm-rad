@@ -521,11 +521,8 @@ onValid form group toAction =
                 case IGroup.readGroup group f.fields registry of
                     Just clean ->
                         let
-                            (IAction.Action applyUserAction) =
-                                toAction clean
-
                             r1 =
-                                applyUserAction registry
+                                IAction.apply (toAction clean) registry
                         in
                         advanceSnapshot form r1
 

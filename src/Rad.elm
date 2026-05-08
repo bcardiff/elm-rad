@@ -10,9 +10,9 @@ module Rad exposing
     , boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
     , Remote(..), remoteCodec
     , Source, toSource, readSource, derive
-    , Action, set, modify, copy, batch, applyAction, noAction
+    , Action, set, modify, copy, batch, applyAction, noAction, persistNow
     , Request, noRequest, mapRequestError, andThenRequest
-    , AppDef, AppModel, run
+    , AppDef, AppModel, PersistConfig, run
     , ComponentDef, defineComponent, withInstance, embed, include
     , Reaction, on
     )
@@ -30,9 +30,9 @@ module Rad exposing
 @docs boolCodec, floatCodec, intCodec, listCodec, maybeCodec, stringCodec
 @docs Remote, remoteCodec
 @docs Source, toSource, readSource, derive
-@docs Action, set, modify, copy, batch, applyAction, noAction
+@docs Action, set, modify, copy, batch, applyAction, noAction, persistNow
 @docs Request, noRequest, mapRequestError, andThenRequest
-@docs AppDef, AppModel, run
+@docs AppDef, AppModel, PersistConfig, run
 @docs ComponentDef, defineComponent, withInstance, embed, include
 @docs Reaction, on
 
@@ -823,6 +823,17 @@ noAction =
     IA.Action identity
 
 
+{-| Action that triggers an immediate persist save (bypasses the 500ms
+debounce). Use as an `onClick` payload like any other Action.
+
+    button { label = "Save now", onClick = Rad.persistNow }
+
+-}
+persistNow : Action model
+persistNow =
+    IA.PersistNow
+
+
 {-| An asynchronous request produced by an effect library (e.g., `Rad.Http`).
 Opaque; Layer 2 constructors are `noRequest` and values returned by
 effect-library functions like `Rad.Http.httpGet`.
@@ -959,6 +970,22 @@ type of a `Program` so user code does not have to name `Rad.Internal.Registry`.
 -}
 type alias AppModel model =
     ( model, Registry, IReaction.ReactionState )
+
+
+{-| Configuration for opt-in localStorage persistence. Pass via
+`AppDef.persist`. The `save` field is a user-supplied port.
+
+    port persistSave : ( String, String ) -> Cmd msg
+
+    persist =
+        Just { key = "myapp", version = 1, save = persistSave }
+
+-}
+type alias PersistConfig msg =
+    { key : String
+    , version : Int
+    , save : ( String, String ) -> Cmd msg
+    }
 
 
 {-| An application definition. Grows additional fields in later layers
