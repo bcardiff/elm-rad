@@ -131,6 +131,7 @@ withState key (CellBuilder f) =
             in
             { nextId = id + 1
             , metas = ( id, stateCodec.encode IForm.initialState ) :: parent.metas
+            , persist = parent.persist
             , ctor = parent.ctor cell
             }
         )

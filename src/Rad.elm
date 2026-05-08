@@ -247,6 +247,7 @@ build ctor =
         (\state ->
             { nextId = state.nextId
             , metas = []
+            , persist = []
             , ctor = ctor
             }
         )
@@ -270,6 +271,7 @@ with key initial codec (CellBuilder f) =
             in
             { nextId = id + 1
             , metas = ( id, codec.encode initial ) :: parent.metas
+            , persist = parent.persist
             , ctor = parent.ctor cell
             }
         )
@@ -337,6 +339,7 @@ withDebounced key delayMs initial codec (CellBuilder f) =
                     :: ( settledId, encodedInitial )
                     :: ( rawId, encodedInitial )
                     :: parent.metas
+            , persist = parent.persist
             , ctor = parent.ctor cell
             }
         )
@@ -563,6 +566,7 @@ withValidated key initial codec errCodec validator (CellBuilder f) =
                     :: ( validationId, encodedDormant )
                     :: ( inputId, encodedInitial )
                     :: parent.metas
+            , persist = parent.persist
             , ctor = parent.ctor cell
             }
         )
@@ -1358,6 +1362,7 @@ withInstance name (ComponentDef def) (CellBuilder f) =
             in
             { nextId = child.nextId
             , metas = child.metas ++ parent.metas
+            , persist = child.persist ++ parent.persist
             , ctor = parent.ctor child.ctor
             }
         )

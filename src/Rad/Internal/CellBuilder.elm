@@ -15,6 +15,7 @@ User code only sees `Rad.CellBuilder ctor`, opaquely.
 -}
 
 import Json.Decode as Decode
+import Rad.Internal.Persist as IPersist
 
 
 type CellBuilder ctor
@@ -30,5 +31,6 @@ type alias BuildState =
 type alias BuildResult ctor =
     { nextId : Int
     , metas : List ( Int, Decode.Value )
+    , persist : List IPersist.PersistEntry
     , ctor : ctor
     }
