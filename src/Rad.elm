@@ -996,6 +996,7 @@ type alias AppDef view model computed =
     , computed : model -> computed
     , view : model -> computed -> view
     , reactions : model -> computed -> List (Reaction model)
+    , persist : Maybe (PersistConfig (Rad.Engine.Msg model))
     }
 
 
@@ -1005,7 +1006,7 @@ effects without changing the harness.
 run :
     Rad.Engine.ViewEngine view model
     -> AppDef view model computed
-    -> Program () (AppModel model) (Rad.Engine.Msg model)
+    -> Program Decode.Value (AppModel model) (Rad.Engine.Msg model)
 run engine app =
     let
         ( model, initialRegistry ) =
@@ -1070,7 +1071,7 @@ run engine app =
     in
     Browser.element
         { init =
-            \() ->
+            \_ ->
                 let
                     ( reg1, state1, cmd ) =
                         fireReactions initialRegistry IReaction.emptyState
