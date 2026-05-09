@@ -996,8 +996,14 @@ type alias PersistConfig msg =
     }
 
 
-{-| An application definition. Grows additional fields in later layers
-(`persist`).
+{-| An application definition.
+
+  - `init` — the cell builder; produces the initial model + registry.
+  - `computed` — derived values rebuilt on every render.
+  - `view` — turns the model + computed values into a view.
+  - `reactions` — async effects rebuilt on every render.
+  - `persist` — opt-in localStorage persistence; `Nothing` means no save/restore.
+
 -}
 type alias AppDef view model computed =
     { init : CellBuilder model
@@ -1332,11 +1338,6 @@ run engine app =
 
                         else
                             ( appModel, Cmd.none )
-
-                    IMsg.PersistRequested ->
-                        ( appModel
-                        , fireSave app.persist registry app.init
-                        )
         , subscriptions = \_ -> Sub.none
         , view =
             \appModel ->

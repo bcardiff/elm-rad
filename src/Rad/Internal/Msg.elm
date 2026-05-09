@@ -19,7 +19,6 @@ type Msg model
     | DebouncedInput IDebounced.Ref Encode.Value
     | DebouncedTimerFire IDebounced.Ref Int
     | PersistTimerFired Int
-    | PersistRequested
 
 
 {-| Apply an engine-originated message to the registry. Reaction results and
@@ -41,7 +40,4 @@ apply msg registry =
             registry
 
         PersistTimerFired _ ->
-            registry
-
-        PersistRequested ->
             registry
