@@ -4,7 +4,7 @@ A declarative DSL for building Elm applications as a reactive graph of **cells**
 
 The runtime interprets your graph into a standard Elm `Program`. Cells hold state, sources are read-only views of state, and reactions turn cell changes into effects. Codecs travel with cells so persistence is structural.
 
-> **Status:** early. Layers 0–4 and 6 of the [design doc](docs/design-elm-rad.md) are shipped (cells, sources, actions, reactions, HTTP, debouncing, validation, components). Layer 5 (Forms) and Layer 7 (persistence) are next.
+> **Status:** all layers of the [design doc](docs/design-elm-rad.md) are shipped — cells, sources, actions, reactions, HTTP, debouncing, validation, forms, components, persistence. See the design doc's *Future Work* section for what's beyond the current scope (ListOf, routing, animation).
 
 ## A first taste — `L01E02_Greeting`
 
@@ -131,7 +131,8 @@ See [`examples/`](examples/) for the full set: counter, swap, derived reads, cus
 
 ## Modules
 
-- `Rad` — public API: `build`, `with`, `withDebounced`, `withValidated`, `on`, `run`, codecs, actions, components.
+- `Rad` — public API: `build`, `with`, `withDebounced`, `withValidated`, `on`, `run`, codecs, actions, components, `PersistConfig`/`persistNow`.
+- `Rad.Form` — orthogonal form layer: snapshot/dirty/reset, submit gating with typed clean values, status helpers.
 - `Rad.Engine` — `Msg`, `ViewEngine`, and the glue for custom view backends.
 - `Rad.View` — an HTML view engine and reactive primitives.
 - `Rad.Read` — the `Read` monad for computed values.
