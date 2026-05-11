@@ -5,7 +5,6 @@ module Rad.Internal.Reaction exposing
     , ReactionState
     , emptyState
     , fromGuts
-    , guts
     )
 
 {-| Internal shape of `Reaction model`. The constructor is exposed to `Rad`
@@ -72,11 +71,6 @@ type alias Guts =
     , writeResult : Encode.Value -> Registry -> Registry
     , inFlight : Registry -> Bool
     }
-
-
-guts : Reaction model -> Guts
-guts (Reaction r) =
-    r
 
 
 fromGuts : Guts -> Reaction model
