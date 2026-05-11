@@ -29,6 +29,7 @@ export default defineConfig({
         "L05E01-profile-form": resolve(__dirname, "L05E01-profile-form.html"),
         "L05E02-wizard-step": resolve(__dirname, "L05E02-wizard-step.html"),
         "L05E03-signup": resolve(__dirname, "L05E03-signup.html"),
+        "L05E04-checkout": resolve(__dirname, "L05E04-checkout.html"),
         "L06E01-counter-component": resolve(__dirname, "L06E01-counter-component.html"),
         "L06E02-tagpicker-component": resolve(__dirname, "L06E02-tagpicker-component.html"),
         "L07E01-persist-counter": resolve(__dirname, "L07E01-persist-counter.html"),
