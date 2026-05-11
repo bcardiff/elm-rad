@@ -4,7 +4,9 @@ import Expect
 import Json.Encode as Encode
 import Rad exposing (build)
 import Rad.Form as Form
+import Rad.Internal.Reaction as IReaction
 import Rad.Internal.Registry as Registry
+import Rad.Internal.Validated as IValidated
 import Test exposing (..)
 
 
@@ -31,6 +33,34 @@ buildForm m =
 
 readDirty f registry =
     Rad.readSource (Form.dirty f) registry
+
+
+type alias ValidatedFields =
+    { name : Rad.ValidatedCell String String }
+
+
+type alias ValidatedModel =
+    { name : Rad.ValidatedCell String String
+    , formState : Rad.Cell Form.State
+    }
+
+
+initValidated =
+    build ValidatedModel
+        |> Rad.withValidated "name" "" Rad.stringCodec Rad.stringCodec (Rad.sync Ok)
+        |> Form.withState "form"
+
+
+buildValidatedForm : ValidatedModel -> Form.Form ValidatedFields
+buildValidatedForm m =
+    Form.over m.formState { name = m.name } [ Form.validatedField m.name ]
+
+
+setValid vcell encodedValue registry =
+    Registry.insert
+        (.validationId (IValidated.ref vcell))
+        (Encode.object [ ( "tag", Encode.string "Valid" ), ( "value", encodedValue ) ])
+        registry
 
 
 suite : Test
@@ -92,4 +122,38 @@ suite =
                         readDirty (buildForm m) registry2
                 in
                 Expect.equal ( True, False ) ( dirtyAtInitial, dirtyAtSnapshot )
+        , test "submit-success path (onValid writeResult) advances snapshot and clears dirty" <|
+            \_ ->
+                let
+                    ( m, r0 ) =
+                        Rad.runBuilder initValidated
+
+                    -- Mutate the field; dirty becomes True.
+                    r1 =
+                        Rad.applyAction (Rad.set (Rad.input m.name) "alice") r0
+
+                    dirtyAfterEdit =
+                        Rad.readSource (Form.dirty (buildValidatedForm m)) r1
+
+                    -- Submit + set validation Valid so the gate passes.
+                    r2 =
+                        r1
+                            |> Rad.applyAction (Form.submit (buildValidatedForm m))
+                            |> setValid m.name (Encode.string "alice")
+
+                    react =
+                        Form.onValid (buildValidatedForm m)
+                            (Form.validators1 .name)
+                            (\_ -> Rad.noAction)
+
+                    -- Run the reaction's writeResult to trigger advanceSnapshot.
+                    r3 =
+                        case react of
+                            IReaction.Reaction g ->
+                                g.writeResult Encode.null r2
+
+                    dirtyAfterAdvance =
+                        Rad.readSource (Form.dirty (buildValidatedForm m)) r3
+                in
+                Expect.equal ( True, False ) ( dirtyAfterEdit, dirtyAfterAdvance )
         ]
