@@ -48,7 +48,7 @@ export function mockApi() {
       });
 
       // POST /api/note
-      server.middlewares.use("/api/note", async (req, res, next) => {
+      server.middlewares.use("/api/note", async (req, res, _next) => {
         if (req.method !== "POST") {
           res.statusCode = 405;
           res.end();
@@ -85,7 +85,7 @@ export function mockApi() {
 
       // POST /api/signup
       // 200 on success; 400 if the username is "fail" (deterministic failure path).
-      server.middlewares.use("/api/signup", async (req, res, next) => {
+      server.middlewares.use("/api/signup", async (req, res, _next) => {
         if (req.method !== "POST") {
           res.statusCode = 405;
           res.end();
