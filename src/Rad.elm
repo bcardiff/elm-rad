@@ -823,10 +823,14 @@ noAction =
     IA.Action identity
 
 
-{-| Action that triggers an immediate persist save (bypasses the 500ms
-debounce). Use as an `onClick` payload like any other Action.
+{-| Action that triggers an immediate persist save, bypassing the 500ms
+auto-save debounce. Use as an `onClick` payload like any other Action.
 
     button { label = "Save now", onClick = Rad.persistNow }
+
+A pending debounced timer becomes stale once `persistNow` saves — when the
+timer eventually fires its counter check rejects it, so there's no
+double-save. No-op when `AppDef.persist` is `Nothing`.
 
 -}
 persistNow : Action model
