@@ -82,6 +82,34 @@ export function mockApi() {
         const q = url.searchParams.get("q") || "";
         sendJson(res, { available: q !== "taken" }, 1500);
       });
+
+      // POST /api/signup
+      // 200 on success; 400 if the username is "fail" (deterministic failure path).
+      server.middlewares.use("/api/signup", async (req, res, next) => {
+        if (req.method !== "POST") {
+          res.statusCode = 405;
+          res.end();
+          return;
+        }
+        const raw = await readBody(req);
+        let parsed;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (_e) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: "invalid json" }));
+          return;
+        }
+        if (parsed.username === "fail") {
+          setTimeout(() => {
+            res.statusCode = 400;
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({ error: "username 'fail' is reserved" }));
+          }, 1500);
+          return;
+        }
+        sendJson(res, { ok: true }, 1500);
+      });
     },
   };
 }
