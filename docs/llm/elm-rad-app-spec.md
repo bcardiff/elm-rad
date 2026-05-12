@@ -731,6 +731,8 @@ main =
 
 10. **Do not put state in `computed`.** `computed` is recomputed per render. It must be a pure function of `model`. Anything stateful belongs in a `Cell`.
 
+11. **Do not enable persistence on apps that hold secrets.** Persistence (`persist = Just ...`) writes every cell's current value to `localStorage`. Passwords, access tokens, and similar sensitive values WILL be written in plaintext. Either keep `persist = Nothing` for forms that touch secrets, or split the app so the secret-holding part has no `PersistConfig`.
+
 ---
 
 ## 16. Type-signature reference (alphabetical)

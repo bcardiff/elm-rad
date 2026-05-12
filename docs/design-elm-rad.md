@@ -772,6 +772,8 @@ Everything. All cell types persist their full state:
 - `Remote a` — all four variants including `Loading` and `Done` with payload
 - `Form fields` — all child cells plus the pristine snapshot
 
+> **⚠️ Sensitive data warning.** Because persistence writes every cell's current value to `localStorage`, apps that hold passwords, access tokens, or other secrets in cells **must not enable persistence** (`persist = Nothing`). Treat `persist` as a feature you opt into only after auditing what your model holds.
+
 ### Stored format
 
 ```json
