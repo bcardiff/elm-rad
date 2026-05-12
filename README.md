@@ -144,4 +144,4 @@ The full design rationale and layer-by-layer spec lives in [`docs/design-elm-rad
 
 ## License
 
-BSD-3-Clause.
+MIT.
