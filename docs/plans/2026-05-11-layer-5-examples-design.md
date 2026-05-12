@@ -18,7 +18,7 @@
 - `examples/src/L05E03_Signup.elm` — signup form with async username-availability validator, sync email + password validators, `validators3 + mapValidated → SignupClean` record, `Form.onSubmit` posting to `/api/signup`, deterministic failure path.
 - `examples/src/L05E04_Checkout.elm` — parent-level checkout form over two `addressComponent` instances (billing + shipping), `validators6` with packer function, `Form.onValid` committing to a `Cell (Maybe Checkout)`.
 - Two HTML harnesses (no JS glue: `persist = Nothing` for both).
-- Two `examples/mock-api-plugin.js` endpoints: `GET /api/check-username` and `POST /api/signup`.
+- Two `examples/mock-api-plugin.js` endpoints: `GET /api/username-check` and `POST /api/signup`.
 - `examples/vite.config.js` and `examples/index.html` updates.
 
 **Out of scope:**
@@ -80,7 +80,7 @@ usernameValidator =
 
 checkUsernameAvailability : String -> Request (List String) String
 checkUsernameAvailability q =
-    Http.httpGet prodHandler ("/api/check-username?q=" ++ q) availableDecoder
+    Http.httpGet prodHandler ("/api/username-check?q=" ++ q) availableDecoder
         |> mapRequestError (\_ -> [ "username check failed; try again" ])
         |> andThenRequest
             (\available ->
@@ -194,7 +194,7 @@ Single-column layout per Section 4 of the brainstorm. Per-field validation hints
 
 Two new branches in `examples/mock-api-plugin.js`:
 
-- `GET /api/check-username?q=<x>` → `{"available": <x not in ["admin","taken"]>}` with ~200ms delay.
+- `GET /api/username-check?q=<x>` → `{"available": <x not in ["admin","taken"]>}` with ~200ms delay.
 - `POST /api/signup` → 400 `{"error": "..."}` if body's `username == "fail"`, else 200 `{"ok": true}`. ~300ms delay.
 
 ### Deterministic flows demoed
@@ -350,9 +350,9 @@ Two stacked `embed addressComponent m.billing` / `m.shipping` blocks (labeled "B
 Add two endpoints to the existing plugin. Style matches the file's existing router; specific code will be confirmed at implementation time by reading the current state of `examples/mock-api-plugin.js`.
 
 ```javascript
-// GET /api/check-username?q=<x>
+// GET /api/username-check?q=<x>
 {
-  url: /^\/api\/check-username/,
+  url: /^\/api\/username-check/,
   method: "GET",
   handler: (req, res) => {
     const q = new URL(req.url, "http://x").searchParams.get("q") || "";
