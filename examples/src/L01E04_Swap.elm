@@ -2,7 +2,7 @@ module L01E04_Swap exposing (main)
 
 import Json.Decode
 import Rad exposing (AppDef, AppModel, Cell, batch, build, copy, run, stringCodec, toSource, with)
-import Rad.Engine exposing (Msg)
+import Rad.Internal.Engine exposing (Msg)
 import SimpleView exposing (SimpleView, button, col, input, simpleViewEngine)
 
 

@@ -4,7 +4,7 @@ import Rad.Internal.Registry exposing (Registry)
 
 
 {-| Internal: the `Action` opaque type with its constructor exposed so that
-`Rad` and `Rad.Engine` can both manipulate actions without depending on each
+`Rad` and `Rad.Internal.Engine` can both manipulate actions without depending on each
 other. User code only sees `Rad.Action`, which is re-exported opaquely.
 -}
 type Action model

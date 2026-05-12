@@ -1,4 +1,4 @@
-module Rad.Engine exposing (Msg, ViewEngine, fromAction, fromDebouncedInput, applyMsg)
+module Rad.Internal.Engine exposing (Msg, ViewEngine, fromAction, fromDebouncedInput, applyMsg)
 
 {-| Engine-author API. App authors never import this module.
 

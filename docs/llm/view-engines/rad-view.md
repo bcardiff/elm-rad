@@ -13,7 +13,7 @@ type Attribute model    -- opaque; HTML attribute (analogous to elm/html's Attri
 ## Engine value
 
 ```elm
-htmlEngine : Rad.Engine.ViewEngine (HtmlView model) model
+htmlEngine : Rad.Internal.Engine.ViewEngine (HtmlView model) model
 ```
 
 Pass `htmlEngine` to `Rad.run`. The `main` signature becomes:

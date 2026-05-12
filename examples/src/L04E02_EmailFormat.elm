@@ -20,7 +20,7 @@ import Rad
         , validationReactions
         , withValidated
         )
-import Rad.Engine exposing (Msg)
+import Rad.Internal.Engine exposing (Msg)
 import SimpleView exposing (SimpleView, button, col, input, simpleViewEngine, text, watch)
 
 

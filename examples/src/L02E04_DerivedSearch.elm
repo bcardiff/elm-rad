@@ -20,8 +20,8 @@ import Rad
         , toSource
         , with
         )
-import Rad.Engine exposing (Msg)
 import Rad.Http as Http exposing (RequestError, prodHandler, requestErrorCodec)
+import Rad.Internal.Engine exposing (Msg)
 import Rad.Read as Read
 import SimpleView exposing (SimpleView, col, input, simpleViewEngine, text, watch)
 

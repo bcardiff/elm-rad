@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "exposed-modules": [
         "Rad",
-        "Rad.Engine",
+        "Rad.Internal.Engine",
         "Rad.Form",
         "Rad.Http",
         "Rad.Read",

@@ -2,7 +2,7 @@ module L01E05_FullName exposing (main)
 
 import Json.Decode
 import Rad exposing (AppDef, AppModel, Cell, Source, build, derive, run, stringCodec, toSource, with)
-import Rad.Engine exposing (Msg)
+import Rad.Internal.Engine exposing (Msg)
 import Rad.Read as Read
 import SimpleView exposing (SimpleView, col, input, simpleViewEngine, text, watch)
 

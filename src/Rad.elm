@@ -43,10 +43,10 @@ import Dict
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Process
-import Rad.Engine
 import Rad.Internal.Action as IA
 import Rad.Internal.CellBuilder as ICellBuilder exposing (CellBuilder(..))
 import Rad.Internal.Debounced as IDebounced
+import Rad.Internal.Engine
 import Rad.Internal.Msg as IMsg
 import Rad.Internal.Persist as IPersist
 import Rad.Internal.Reaction as IReaction
@@ -1014,7 +1014,7 @@ type alias AppDef view model computed =
     , computed : model -> computed
     , view : model -> computed -> view
     , reactions : model -> computed -> List (Reaction model)
-    , persist : Maybe (PersistConfig (Rad.Engine.Msg model))
+    , persist : Maybe (PersistConfig (Rad.Internal.Engine.Msg model))
     }
 
 
@@ -1028,10 +1028,10 @@ snapshotSchema (CellBuilder f) =
 
 
 fireSave :
-    Maybe (PersistConfig (Rad.Engine.Msg model))
+    Maybe (PersistConfig (Rad.Internal.Engine.Msg model))
     -> Registry
     -> CellBuilder model
-    -> Cmd (Rad.Engine.Msg model)
+    -> Cmd (Rad.Internal.Engine.Msg model)
 fireSave maybeConfig registry init_ =
     case maybeConfig of
         Nothing ->
@@ -1063,15 +1063,15 @@ fireSave maybeConfig registry init_ =
 effects without changing the harness.
 -}
 run :
-    Rad.Engine.ViewEngine view model
+    Rad.Internal.Engine.ViewEngine view model
     -> AppDef view model computed
-    -> Program Decode.Value (AppModel model) (Rad.Engine.Msg model)
+    -> Program Decode.Value (AppModel model) (Rad.Internal.Engine.Msg model)
 run engine app =
     let
         ( model, initialRegistry ) =
             runBuilder app.init
 
-        fireReactions : Registry -> IReaction.ReactionState -> ( Registry, IReaction.ReactionState, Cmd (Rad.Engine.Msg model) )
+        fireReactions : Registry -> IReaction.ReactionState -> ( Registry, IReaction.ReactionState, Cmd (Rad.Internal.Engine.Msg model) )
         fireReactions registry state =
             let
                 reactions =
@@ -1128,7 +1128,7 @@ run engine app =
             in
             ( finalReg, finalState, Cmd.batch finalCmds )
 
-        recoverInFlight : Registry -> ( IReaction.ReactionState, Cmd (Rad.Engine.Msg model) )
+        recoverInFlight : Registry -> ( IReaction.ReactionState, Cmd (Rad.Internal.Engine.Msg model) )
         recoverInFlight registry =
             let
                 reactions =
@@ -1167,7 +1167,7 @@ run engine app =
             ( finalState, Cmd.batch finalCmds )
     in
     let
-        scheduleSave : Int -> Cmd (Rad.Engine.Msg model)
+        scheduleSave : Int -> Cmd (Rad.Internal.Engine.Msg model)
         scheduleSave newDirty =
             case app.persist of
                 Just _ ->

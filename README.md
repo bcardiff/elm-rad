@@ -14,7 +14,7 @@ An input bound to a cell; a watch that re-renders whenever the cell changes. No 
 module L01E02_Greeting exposing (main)
 
 import Rad exposing (AppDef, AppModel, Cell, build, run, stringCodec, toSource, with)
-import Rad.Engine exposing (Msg)
+import Rad.Internal.Engine exposing (Msg)
 import SimpleView exposing (SimpleView, col, input, simpleViewEngine, text, watch)
 
 
@@ -55,7 +55,7 @@ import Rad
         , build, listCodec, on, remoteCodec, run, stringCodec
         , with, withDebounced
         )
-import Rad.Engine exposing (Msg)
+import Rad.Internal.Engine exposing (Msg)
 import Rad.Http as Http exposing (RequestError, prodHandler, requestErrorCodec)
 import Rad.View exposing (CommitTrigger(..))
 import SimpleView exposing (SimpleView, col, debouncedInput, simpleViewEngine, text, watch)
@@ -133,7 +133,7 @@ See [`examples/`](examples/) for the full set: counter, swap, derived reads, cus
 
 - `Rad` — public API: `build`, `with`, `withDebounced`, `withValidated`, `on`, `run`, codecs, actions, components, `PersistConfig`/`persistNow`.
 - `Rad.Form` — orthogonal form layer: snapshot/dirty/reset, submit gating with typed clean values, status helpers.
-- `Rad.Engine` — `Msg`, `ViewEngine`, and the glue for custom view backends.
+- `Rad.Internal.Engine` — `Msg`, `ViewEngine`, and the glue for custom view backends.
 - `Rad.View` — an HTML view engine and reactive primitives.
 - `Rad.Read` — the `Read` monad for computed values.
 - `Rad.Http` — HTTP request builders that plug into reactions.

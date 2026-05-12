@@ -2,7 +2,7 @@ module L01E02_Greeting exposing (main)
 
 import Json.Decode
 import Rad exposing (AppDef, AppModel, Cell, build, run, stringCodec, toSource, with)
-import Rad.Engine exposing (Msg)
+import Rad.Internal.Engine exposing (Msg)
 import SimpleView exposing (SimpleView, col, input, simpleViewEngine, text, watch)
 
 

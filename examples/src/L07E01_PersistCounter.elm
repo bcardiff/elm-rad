@@ -14,7 +14,7 @@ import Rad
         , toSource
         , with
         )
-import Rad.Engine exposing (Msg)
+import Rad.Internal.Engine exposing (Msg)
 import SimpleView exposing (SimpleView, button, col, simpleViewEngine, text, watch)
 
 

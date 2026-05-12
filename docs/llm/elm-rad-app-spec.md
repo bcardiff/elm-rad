@@ -599,7 +599,7 @@ type alias AppDef view model computed =
     , computed : model -> computed
     , view : model -> computed -> view
     , reactions : model -> computed -> List (Reaction model)
-    , persist : Maybe (PersistConfig (Rad.Engine.Msg model))
+    , persist : Maybe (PersistConfig (Rad.Internal.Engine.Msg model))
     }
 
 type alias AppModel model =
@@ -607,17 +607,17 @@ type alias AppModel model =
     ...
 
 run :
-    Rad.Engine.ViewEngine view model
+    Rad.Internal.Engine.ViewEngine view model
     -> AppDef view model computed
-    -> Program Json.Decode.Value (AppModel model) (Rad.Engine.Msg model)
+    -> Program Json.Decode.Value (AppModel model) (Rad.Internal.Engine.Msg model)
 ```
 
-The `Rad.Engine.ViewEngine view model` interface is supplied by your view engine (see §13). For non-persistent apps, set `persist = Nothing` and ignore the `flags` argument in your JS init.
+The `Rad.Internal.Engine.ViewEngine view model` interface is supplied by your view engine (see §13). For non-persistent apps, set `persist = Nothing` and ignore the `flags` argument in your JS init.
 
 **`main` signature:**
 
 ```elm
-main : Program Json.Decode.Value (AppModel Model) (Rad.Engine.Msg Model)
+main : Program Json.Decode.Value (AppModel Model) (Rad.Internal.Engine.Msg Model)
 main =
     run myViewEngine app
 ```
@@ -628,10 +628,10 @@ main =
 
 `elm-rad` is engine-agnostic. A view engine provides:
 - A view type (`view` in the type parameters above).
-- A `Rad.Engine.ViewEngine view model` value.
+- A `Rad.Internal.Engine.ViewEngine view model` value.
 - Primitive constructors for that view type (text, layout, inputs, buttons, etc.).
 
-The package ships one HTML-based view engine in `Rad.View` (used by the bundled examples), but you can write your own (svg, terminal, server-rendered, etc.) by implementing `Rad.Engine.ViewEngine`.
+The package ships one HTML-based view engine in `Rad.View` (used by the bundled examples), but you can write your own (svg, terminal, server-rendered, etc.) by implementing `Rad.Internal.Engine.ViewEngine`.
 
 The skill that generated this doc has a slot for the chosen view engine. **Replace the marker below with your view-engine's primitives** (or run `elm-rad-docgen --view-engine path/to/spec.md` to have the skill fill it for you).
 
@@ -665,7 +665,7 @@ import Rad
         , toSource
         , with
         )
-import Rad.Engine exposing (Msg)
+import Rad.Internal.Engine exposing (Msg)
 import Rad.Http exposing (RequestError, requestErrorCodec)
 -- View engine imports go here (see §13).
 

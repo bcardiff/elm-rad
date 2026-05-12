@@ -324,7 +324,7 @@ Recorded here so future contributors don't re-debate them.
 
 4. **`synced` is derived.** Reads raw and settled via the cell's codec, compares their JSON-encoded forms. No stored flag — the source of truth is `raw == settled`. A stored flag would require every raw/settled write site to maintain it; the drift risk outweighed any observable win.
 
-5. **Per-binding trigger sets.** `bindDebouncedWith` decides its `onInput` handler at attribute-wiring time: if the trigger list contains `OnTimeout`, the handler uses `Rad.Engine.fromDebouncedInput` (schedules a timer); otherwise it uses an internal `Action` that writes raw and bumps the seq without scheduling. `OnEnter` and `OnBlur` attach commit handlers regardless of whether `OnTimeout` is present.
+5. **Per-binding trigger sets.** `bindDebouncedWith` decides its `onInput` handler at attribute-wiring time: if the trigger list contains `OnTimeout`, the handler uses `Rad.Internal.Engine.fromDebouncedInput` (schedules a timer); otherwise it uses an internal `Action` that writes raw and bumps the seq without scheduling. `OnEnter` and `OnBlur` attach commit handlers regardless of whether `OnTimeout` is present.
 
 ### Why debounce is a cell type, not a reaction modifier
 

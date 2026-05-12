@@ -1,7 +1,7 @@
 module Rad.Internal.Msg exposing (Msg(..), apply)
 
 {-| Internal definition of `Msg model`. The constructor is exposed so that
-`Rad.elm` (runtime) can pattern-match, while `Rad.Engine` re-exports `Msg`
+`Rad.elm` (runtime) can pattern-match, while `Rad.Internal.Engine` re-exports `Msg`
 opaquely — keeping engines unaware of variants.
 -}
 

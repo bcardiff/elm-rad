@@ -25,7 +25,7 @@ Generates a single self-contained markdown doc that an LLM can use as a system p
 2. **Verify the framework section is current** by spot-checking the exposing lists of:
    - `src/Rad.elm`
    - `src/Rad/Form.elm`
-   - `src/Rad/Engine.elm`
+   - `src/Rad/Internal/Engine.elm`
    - `src/Rad/Http.elm`
    - `src/Rad/Read.elm`
    - `src/Rad/View.elm`
@@ -100,7 +100,7 @@ description: SimpleView — the example view engine bundled with the elm-rad exa
 
 ## Engine value
 
-`simpleViewEngine : Rad.Engine.ViewEngine (SimpleView model) model`
+`simpleViewEngine : Rad.Internal.Engine.ViewEngine (SimpleView model) model`
 
 ## Complete idiomatic example
 

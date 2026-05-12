@@ -24,8 +24,8 @@ import Rad
         , set
         , toSource
         )
-import Rad.Engine exposing (Msg, ViewEngine, fromAction, fromDebouncedInput)
 import Rad.Internal.Debounced as IDebounced
+import Rad.Internal.Engine exposing (Msg, ViewEngine, fromAction, fromDebouncedInput)
 import Rad.Internal.Registry exposing (Registry)
 import Rad.View exposing (CommitTrigger(..))
 

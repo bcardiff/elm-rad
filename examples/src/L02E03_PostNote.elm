@@ -19,8 +19,8 @@ import Rad
         , toSource
         , with
         )
-import Rad.Engine exposing (Msg)
 import Rad.Http as Http exposing (RequestError(..), prodHandler)
+import Rad.Internal.Engine exposing (Msg)
 import SimpleView exposing (SimpleView, button, col, input, simpleViewEngine, text, watch)
 
 

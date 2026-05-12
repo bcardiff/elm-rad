@@ -18,9 +18,9 @@ import Rad
         , with
         , withValidated
         )
-import Rad.Engine exposing (Msg)
 import Rad.Form as Form exposing (Status(..))
 import Rad.Http exposing (RequestError, requestErrorCodec)
+import Rad.Internal.Engine exposing (Msg)
 import SimpleView exposing (SimpleView, button, col, input, simpleViewEngine, text, watch)
 
 

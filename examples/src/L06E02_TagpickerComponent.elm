@@ -24,8 +24,8 @@ import Rad
         , withDebounced
         , withInstance
         )
-import Rad.Engine exposing (Msg)
 import Rad.Http as Http exposing (RequestError, prodHandler, requestErrorCodec)
+import Rad.Internal.Engine exposing (Msg)
 import Rad.View exposing (CommitTrigger(..))
 import SimpleView
     exposing

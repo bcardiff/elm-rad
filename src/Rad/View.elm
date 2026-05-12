@@ -21,8 +21,8 @@ import Html.Attributes
 import Html.Events
 import Json.Decode as Decode
 import Rad exposing (Action, Cell, DebouncedCell, Source, commit, readSource, set, toSource)
-import Rad.Engine exposing (Msg, ViewEngine, fromAction, fromDebouncedInput)
 import Rad.Internal.Debounced as IDebounced
+import Rad.Internal.Engine exposing (Msg, ViewEngine, fromAction, fromDebouncedInput)
 import Rad.Internal.Registry exposing (Registry)
 
 

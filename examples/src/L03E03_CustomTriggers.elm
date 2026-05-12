@@ -11,7 +11,7 @@ import Rad
         , stringCodec
         , withDebounced
         )
-import Rad.Engine exposing (Msg)
+import Rad.Internal.Engine exposing (Msg)
 import Rad.View exposing (CommitTrigger(..))
 import SimpleView
     exposing
